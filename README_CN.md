@@ -214,16 +214,6 @@ AITaskRunner/
 - 在受限环境（如沙箱、无本地网络权限）运行时，对回环的请求可能被拦截，此时需要授予本地网络访问权限或在允许网络的环境中运行后端。
 - 启动后可用 `curl http://127.0.0.1:8086/health` 自检；如果失败，请检查端口占用、防火墙或重启 `start_web.py`。
 
-## 贡献
-
-欢迎贡献代码！请随时提交 Pull Request。
-
-1. Fork 本仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 发起 Pull Request
-
 ## 许可证
 
 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。

@@ -212,16 +212,6 @@ Settings can be configured via the web UI Settings page:
 - In restricted environments (sandboxes, no local network permission), loopback requests may be intercepted. Grant local network access or run the backend in an environment that allows networking.
 - After starting, run `curl http://127.0.0.1:8086/health` to verify. If it fails, check for port conflicts, firewall issues, or restart `start_web.py`.
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
