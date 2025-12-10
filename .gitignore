@@ -68,6 +68,6 @@ config.local.yaml
 
 # Backup files
 *_backup_*.db
-CLAUDE.md*.db-shm
+CLAUDE.md
 *.db-wal
 *.db
