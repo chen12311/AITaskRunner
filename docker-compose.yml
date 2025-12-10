@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  codex-automation:
+    build: .
+    container_name: codex-automation
+    ports:
+      - "8086:8086"
+    volumes:
+      # 持久化数据库
+      - ./data:/app/data
+      # 挂载项目目录（可选，用于访问本地项目）
+      - ${HOST_PROJECTS_DIR:-/tmp}:/projects:ro
+    environment:
+      - API_BASE_URL=${API_BASE_URL:-http://127.0.0.1:8086}
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# 可选：开发模式配置
+# docker-compose -f docker-compose.yml -f docker-compose.dev.yml up

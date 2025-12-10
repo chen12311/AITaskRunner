@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# State files
+state.json
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Completed tasks
+tasks/.completed/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend build
+frontend/dist/
+
+# Config files with secrets
+config.local.yaml
+.env
+
+# Backup files
+*_backup_*.db
+CLAUDE.md*.db-shm
+*.db-wal
+*.db

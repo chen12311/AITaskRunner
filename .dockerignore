@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+ENV
+env
+.pytest_cache
+.mypy_cache
+*.egg-info
+
+# Node
+node_modules
+frontend/node_modules
+frontend/dist
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs
+
+# Tests
+tests
+*.test.*
+coverage
+
+# Documentation (not needed in container)
+docs
+*.md
+!README.md
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+frontend/.env
+frontend/.env.local
+
+# Temp files
+tmp
+temp
+*.tmp

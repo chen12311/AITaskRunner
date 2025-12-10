@@ -1,0 +1,344 @@
+{
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "save": "保存",
+    "search": "搜索",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "actions": "操作",
+    "refresh": "刷新",
+    "close": "关闭",
+    "submit": "提交",
+    "reset": "重置",
+    "all": "全部",
+    "default": "默认"
+  },
+  "sidebar": {
+    "title": "AITaskRunner",
+    "subtitle": "AI 代码自动化平台",
+    "nav": {
+      "tasks": "任务管理",
+      "sessions": "会话监控",
+      "logs": "系统日志",
+      "templates": "提示词模板",
+      "projects": "项目管理",
+      "settings": "系统设置"
+    },
+    "version": "v1.0.0"
+  },
+  "header": {
+    "toggleTheme": "切换主题",
+    "toggleMenu": "切换菜单"
+  },
+  "tasks": {
+    "title": "任务列表",
+    "createTask": "创建任务",
+    "editTask": "编辑任务",
+    "noData": "暂无任务数据",
+    "deleteSuccess": "任务已删除",
+    "deleteFailed": "删除失败",
+    "startSuccess": "任务已启动",
+    "startFailed": "启动失败",
+    "searchPlaceholder": "搜索项目名称...",
+    "statusFilter": "状态筛选",
+    "runningCount": "运行中 {{current}}/{{max}}",
+    "status": {
+      "all": "全部状态",
+      "pending": "待处理",
+      "in_progress": "进行中",
+      "in_reviewing": "审查中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "table": {
+      "taskId": "任务ID",
+      "projectName": "项目名称",
+      "docPath": "文档路径",
+      "status": "状态",
+      "cliType": "CLI类型",
+      "createdAt": "创建时间",
+      "actions": "操作"
+    },
+    "details": {
+      "projectDirectory": "项目目录：",
+      "documentPath": "文档路径：",
+      "executionLogs": "执行日志（最近10条）",
+      "noLogs": "暂无日志"
+    },
+    "form": {
+      "title": {
+        "create": "创建任务",
+        "edit": "编辑任务"
+      },
+      "project": "选择项目",
+      "projectPlaceholder": "请选择项目",
+      "projectRequired": "请选择项目",
+      "docPath": "文档相对路径",
+      "docPathPlaceholder": "例如: docs/feature.md",
+      "docPathRequired": "请输入文档路径",
+      "cliType": "CLI 工具（可选）",
+      "cliTypePlaceholder": "使用默认 CLI",
+      "cliTypeDefault": "使用默认",
+      "enableReview": "启用审查",
+      "reviewInherit": "继承全局",
+      "reviewEnabled": "启用",
+      "reviewDisabled": "禁用",
+      "createSuccess": "任务已创建",
+      "createFailed": "创建失败",
+      "updateSuccess": "任务已更新",
+      "updateFailed": "更新失败"
+    },
+    "dialog": {
+      "deleteTitle": "确认删除",
+      "deleteDescription": "此操作无法撤销，确定要删除该任务吗？",
+      "confirmDelete": "确认删除"
+    }
+  },
+  "logs": {
+    "title": "系统日志",
+    "selectTask": "选择任务查看日志",
+    "selectTaskPrompt": "请选择任务以查看日志",
+    "noData": "暂无日志数据",
+    "searchPlaceholder": "搜索日志...",
+    "levelFilter": "日志级别",
+    "levels": {
+      "all": "全部级别",
+      "INFO": "INFO",
+      "WARNING": "WARNING",
+      "ERROR": "ERROR",
+      "DEBUG": "DEBUG"
+    }
+  },
+  "templates": {
+    "title": "提示词模板",
+    "createTemplate": "新建模板",
+    "editTemplate": "编辑模板",
+    "noData": "暂无模板数据",
+    "deleteSuccess": "模板已删除",
+    "deleteFailed": "删除失败",
+    "createSuccess": "模板已创建",
+    "createFailed": "创建失败",
+    "updateSuccess": "模板已更新",
+    "updateFailed": "更新失败",
+    "setDefaultSuccess": "已设为默认模板",
+    "setDefaultFailed": "设置失败",
+    "renderSuccess": "渲染成功",
+    "renderFailed": "渲染失败",
+    "searchPlaceholder": "搜索模板...",
+    "typeFilter": "类型筛选",
+    "types": {
+      "all": "全部类型",
+      "initial_task": "初始任务",
+      "continue_task": "继续任务",
+      "resume_task": "恢复任务",
+      "status_check": "状态检查",
+      "review": "审查",
+      "planning": "规划"
+    },
+    "table": {
+      "name": "模板名称",
+      "type": "类型",
+      "description": "描述",
+      "updatedAt": "更新时间",
+      "actions": "操作"
+    },
+    "preview": {
+      "title": "模板预览：{{name}}",
+      "type": "类型：",
+      "description": "描述：",
+      "content": "模板内容",
+      "variables": "变量输入",
+      "variablesHint": "自动检测并填写模板变量，点击渲染查看效果",
+      "noVariables": "未检测到模板变量",
+      "variablePlaceholder": "为 {{variable}} 输入测试值",
+      "render": "渲染预览",
+      "rendering": "渲染中...",
+      "result": "渲染结果"
+    },
+    "dialog": {
+      "title": {
+        "create": "新建模板",
+        "edit": "编辑模板"
+      },
+      "form": {
+        "name": "模板名称",
+        "namePlaceholder": "例如: 功能开发模板",
+        "nameRequired": "请输入模板名称",
+        "type": "模板类型",
+        "typePlaceholder": "选择类型",
+        "description": "描述（可选）",
+        "descriptionPlaceholder": "模板描述...",
+        "content": "模板内容",
+        "contentPlaceholder": "输入模板内容，支持变量如 {{project_name}}, {{doc_path}} 等...",
+        "contentRequired": "请输入模板内容",
+        "variablesHint": "常用变量："
+      },
+      "deleteTitle": "确认删除",
+      "deleteDescription": "此操作无法撤销，确定要删除该模板吗？",
+      "confirmDelete": "确认删除"
+    }
+  },
+  "sessions": {
+    "title": "会话监控",
+    "description": "实时监控和管理所有 AI 编程会话",
+    "refresh": "刷新",
+    "stopAll": "停止所有",
+    "stats": {
+      "active": "活跃会话",
+      "total": "总会话数",
+      "maxConcurrent": "最大并发",
+      "availableSlots": "可用槽位"
+    },
+    "filters": {
+      "statusPlaceholder": "选择状态",
+      "searchPlaceholder": "搜索任务 ID..."
+    },
+    "status": {
+      "all": "全部状态",
+      "running": "运行中",
+      "paused": "已暂停",
+      "stopped": "已停止"
+    },
+    "listTitle": "会话列表",
+    "empty": {
+      "noMatch": "未找到匹配的会话",
+      "noData": "暂无活跃会话"
+    },
+    "table": {
+      "taskId": "任务 ID",
+      "status": "状态",
+      "pid": "进程 ID",
+      "startedAt": "启动时间",
+      "duration": "运行时长",
+      "actions": "操作"
+    },
+    "actions": {
+      "viewDetails": "查看详情",
+      "pause": "暂停",
+      "stop": "停止"
+    },
+    "dialogs": {
+      "stopOne": {
+        "title": "确认停止会话？",
+        "description": "此操作将停止任务 {{taskId}}... 的会话。终端窗口将被关闭，槽位将被释放。",
+        "confirm": "确认停止",
+        "cancel": "取消"
+      },
+      "stopAll": {
+        "title": "确认停止所有会话？",
+        "description": "此操作将停止当前所有 {{count}} 个会话。所有终端窗口将被关闭，所有槽位将被释放。",
+        "warning": "此操作不可撤销！",
+        "confirm": "确认停止所有",
+        "cancel": "取消"
+      }
+    },
+    "toast": {
+      "refreshed": "已刷新会话数据",
+      "stopSuccess": "会话已停止",
+      "stopFailed": "停止会话失败: {{message}}",
+      "pauseSuccess": "会话已暂停",
+      "pauseFailed": "暂停会话失败: {{message}}",
+      "stopAllSuccess": "所有会话已停止",
+      "stopAllFailed": "停止所有会话失败: {{message}}"
+    }
+  },
+  "projects": {
+    "title": "项目管理",
+    "createProject": "新增项目",
+    "editProject": "编辑项目",
+    "noData": "暂无项目数据",
+    "deleteSuccess": "项目已删除",
+    "deleteFailed": "删除失败",
+    "createSuccess": "项目已创建",
+    "createFailed": "创建失败",
+    "updateSuccess": "项目已更新",
+    "updateFailed": "更新失败",
+    "table": {
+      "name": "项目名称",
+      "directory": "项目目录",
+      "description": "描述",
+      "actions": "操作"
+    },
+    "dialog": {
+      "title": {
+        "create": "新增项目",
+        "edit": "编辑项目"
+      },
+      "form": {
+        "name": "项目名称",
+        "namePlaceholder": "例如: my-project",
+        "nameRequired": "请输入项目名称",
+        "directory": "项目目录",
+        "directoryPlaceholder": "例如: /Users/name/projects/my-project",
+        "directoryRequired": "请输入项目目录",
+        "description": "描述（可选）",
+        "descriptionPlaceholder": "项目描述..."
+      },
+      "deleteTitle": "确认删除",
+      "deleteDescription": "此操作无法撤销，删除项目后相关任务可能受影响，确定要删除吗？",
+      "confirmDelete": "确认删除"
+    }
+  },
+  "settings": {
+    "title": "系统设置",
+    "loadFailed": "加载设置失败",
+    "updateSuccess": "设置已更新",
+    "updateFailed": "更新失败",
+    "api": {
+      "title": "API 地址配置",
+      "description": "当前系统使用的 API 地址",
+      "frontend": "前端 API 地址：",
+      "backend": "后端回调地址：",
+      "hint": "如需修改 API 地址，请编辑 .env 文件中的 VITE_API_BASE_URL"
+    },
+    "review": {
+      "title": "审查功能",
+      "description": "启用后，任务完成时会进行人工审查",
+      "enable": "启用审查"
+    },
+    "cli": {
+      "title": "默认 CLI 工具",
+      "description": "选择默认使用的 AI 代码助手",
+      "notInstalled": "未安装",
+      "recommended": "推荐"
+    },
+    "reviewCli": {
+      "title": "Review CLI 工具",
+      "description": "审查阶段使用的 CLI 工具",
+      "supportsSessionRecovery": "支持会话恢复"
+    },
+    "concurrent": {
+      "title": "并发设置",
+      "description": "同时运行的最大任务数量",
+      "label": "最大并发数："
+    },
+    "terminal": {
+      "title": "终端设置",
+      "description": "选择用于执行任务的终端",
+      "notInstalled": "未安装",
+      "hint": "Kitty 终端支持更好的会话恢复体验，如未安装请参考官方文档进行安装后再选择。"
+    },
+    "terminals": {
+      "auto": "自动检测",
+      "kitty": "Kitty",
+      "iterm": "iTerm2",
+      "windows_terminal": "Windows Terminal"
+    },
+    "clis": {
+      "claude_code": "Claude Code",
+      "codex": "OpenAI Codex CLI",
+      "gemini": "Google Gemini CLI",
+      "aider": "Aider",
+      "cursor": "Cursor"
+    }
+  },
+  "errorBoundary": {
+    "title": "页面出现错误",
+    "description": "请刷新页面重试，如果问题持续请联系管理员。",
+    "reload": "刷新页面"
+  }
+}
