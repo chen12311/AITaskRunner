@@ -463,7 +463,12 @@ async def start_task(task_id: str):
         raise HTTPException(status_code=500, detail="Failed to start CLI session")
 
     # 更新任务状态并获取更新后的任务
-    updated_task = await task_service.start_task_and_return(task_id)
+    if is_in_reviewing:
+        # 审查模式：保持 in_reviewing 状态，只记录日志
+        await task_service.add_task_log(task_id, 'INFO', 'Review session started')
+        updated_task = await task_service.get_task_basic(task_id)
+    else:
+        updated_task = await task_service.start_task_and_return(task_id)
 
     # 广播会话启动事件
     await manager.broadcast({
