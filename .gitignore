@@ -74,4 +74,5 @@ CLAUDE.md
 *.db
 
 
-CLAUDE.md
+aitaskrunner.db-shm
+aitaskrunner.db-wal
