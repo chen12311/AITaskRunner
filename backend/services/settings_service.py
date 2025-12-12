@@ -20,6 +20,7 @@ class SettingsService:
         "api_base_url": "http://127.0.0.1:8086",  # API 基础 URL
         "max_concurrent_sessions": "3",  # 最大并发会话数
         "language": "zh",  # 界面语言：zh 或 en
+        "skip_completion_check": "false",  # 是否跳过完成检测
     }
 
     # 支持的终端类型（按平台）
@@ -75,6 +76,7 @@ class SettingsService:
             "api_base_url": "API 基础 URL，用于回调通知",
             "max_concurrent_sessions": "最大并发会话数，默认 3",
             "language": "界面语言：zh (中文) 或 en (English)",
+            "skip_completion_check": "是否跳过完成检测：true 跳过，false 检测",
         }
         return descriptions.get(key, "")
 

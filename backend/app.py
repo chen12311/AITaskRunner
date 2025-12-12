@@ -577,36 +577,17 @@ async def _restart_session_impl(task_id: str, task, progress: dict):
     try:
         await task_service.add_task_log(task_id, "INFO", "重启会话中...")
 
-        # 检查会话是否已在运行
-        session_status = await codex_service.get_status(task_id)
+        # 先关闭当前会话（无论是否在运行）
+        await codex_service.stop_session(task_id)
+        await task_service.add_task_log(task_id, "INFO", "已关闭当前会话，准备启动新会话...")
 
-        if session_status and session_status.is_running:
-            # 会话已运行，直接发送继续执行指令
-            await task_service.add_task_log(task_id, "INFO", "会话已运行，发送继续执行指令...")
-
-            # 获取语言设置
-            locale = await settings_service.get_language()
-
-            # 渲染继续执行的模板消息
-            continue_message = await template_service.render_template_async(
-                "continue_task",
-                locale=locale,
-                project_dir=task.project_directory,
-                doc_path=task.markdown_document_path,
-                task_id=task_id,
-                api_base_url=await settings_service.get_setting('api_base_url') or 'http://127.0.0.1:8086',
-                remaining_tasks=progress['remaining']
-            )
-
-            await codex_service.send_message(continue_message, task_id)
-            success = True  # send_message 没有返回值，假定发送成功
-        else:
-            # 会话未运行，启动新会话
-            success = await codex_service.start_session(
-                task_id=task_id,
-                project_dir=task.project_directory,
-                doc_path=task.markdown_document_path
-            )
+        # 启动新会话，使用 resume_task 模板
+        success = await codex_service.start_session(
+            task_id=task_id,
+            project_dir=task.project_directory,
+            doc_path=task.markdown_document_path,
+            template_name="resume_task"
+        )
 
         if success:
             await task_service.add_task_log(task_id, "INFO", "✅ 会话重启成功，继续执行剩余任务")
@@ -811,31 +792,43 @@ async def notify_task_status(task_id: str, request: dict):
                 response_message = "All tasks done, starting review phase"
 
     elif status == "completed":
-        # 强制验证文档完成率
-        from backend.utils.markdown_checker import check_remaining_tasks
+        # 检查是否跳过完成检测
+        skip_check = (await settings_service.get_setting("skip_completion_check")) == "true"
 
-        progress = check_remaining_tasks(task.markdown_document_path)
-        progress_summary = f"{progress['completed']}/{progress['total']} completed ({progress['remaining']} remaining)"
-
-        if progress.get("has_remaining", False):
-            # 还有未完成任务，自动转为 session_completed 逻辑
-            await task_service.add_task_log(
-                task_id,
-                "WARNING",
-                f"⚠️ Codex 发送 completed 但文档还有 {progress['remaining']} 个未完成任务（{progress_summary}），自动转为 session_completed 继续执行"
-            )
-            await _create_restart_task(task_id, task, progress)
-            response_message = f"Detected {progress['remaining']} remaining tasks, converted to session_completed and restarting"
-        else:
-            # 优化4.2: 直接使用 task.status，无需再次查询
+        if skip_check:
+            # 跳过检测，直接处理
             if task.status == 'in_reviewing':
-                # 已在 review 阶段，标记最终完成
-                await _complete_task_with_cleanup(task_id, f"✅ Review 通过，任务最终完成（{progress_summary}）")
+                await _complete_task_with_cleanup(task_id, "✅ Review 通过，任务最终完成")
                 response_message = "Review completed, all tasks finished"
             else:
-                # 触发 review
                 await _trigger_review_task(task_id, task)
-                response_message = f"All tasks done ({progress_summary}), starting review phase"
+                response_message = "All tasks done, starting review phase (skip_completion_check enabled)"
+        else:
+            # 强制验证文档完成率
+            from backend.utils.markdown_checker import check_remaining_tasks
+
+            progress = check_remaining_tasks(task.markdown_document_path)
+            progress_summary = f"{progress['completed']}/{progress['total']} completed ({progress['remaining']} remaining)"
+
+            if progress.get("has_remaining", False):
+                # 还有未完成任务，自动转为 session_completed 逻辑
+                await task_service.add_task_log(
+                    task_id,
+                    "WARNING",
+                    f"⚠️ Codex 发送 completed 但文档还有 {progress['remaining']} 个未完成任务（{progress_summary}），自动转为 session_completed 继续执行"
+                )
+                await _create_restart_task(task_id, task, progress)
+                response_message = f"Detected {progress['remaining']} remaining tasks, converted to session_completed and restarting"
+            else:
+                # 优化4.2: 直接使用 task.status，无需再次查询
+                if task.status == 'in_reviewing':
+                    # 已在 review 阶段，标记最终完成
+                    await _complete_task_with_cleanup(task_id, f"✅ Review 通过，任务最终完成（{progress_summary}）")
+                    response_message = "Review completed, all tasks finished"
+                else:
+                    # 触发 review
+                    await _trigger_review_task(task_id, task)
+                    response_message = f"All tasks done ({progress_summary}), starting review phase"
 
     elif status == "review_completed":
         # 优化4.2: 直接使用 task.status
@@ -1051,7 +1044,7 @@ async def websocket_monitor(websocket: WebSocket):
                     status = await codex_service.get_status()
 
                     # 优化7.1: 同时推送活跃会话列表
-                    sessions = await codex_service.get_all_sessions()
+                    sessions = codex_service.get_all_sessions()
 
                     await websocket.send_json({
                         "type": "status_update",

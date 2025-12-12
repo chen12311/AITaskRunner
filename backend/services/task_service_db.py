@@ -96,13 +96,13 @@ class TaskServiceDB:
             self._initialized = True
 
     async def get_all_tasks(self) -> List[TaskModel]:
-        """Get all tasks"""
+        """获取所有任务"""
         await self.initialize()
         tasks = await self.task_dao.get_all_tasks()
         return [self._convert_to_model(task) for task in tasks]
 
     async def get_task(self, task_id: str) -> Optional[TaskModel]:
-        """Get a single task by ID (with logs)"""
+        """根据ID获取单个任务（含日志）"""
         await self.initialize()
         task = await self.task_dao.get_task(task_id)
         if task:
@@ -110,7 +110,7 @@ class TaskServiceDB:
         return None
 
     async def get_task_basic(self, task_id: str) -> Optional[TaskModel]:
-        """Get a single task by ID without logs (optimized)"""
+        """根据ID获取单个任务（不含日志，已优化）"""
         await self.initialize()
         task = await self.task_dao.get_task_basic(task_id)
         if task:
@@ -118,7 +118,7 @@ class TaskServiceDB:
         return None
 
     async def create_task(self, request: TaskCreateRequest) -> TaskModel:
-        """Create a new task"""
+        """创建新任务"""
         await self.initialize()
 
         # 通过 project_id 获取项目目录
@@ -135,7 +135,7 @@ class TaskServiceDB:
         # 验证路径有效性
         self._validate_paths(project_directory, markdown_document_path)
 
-        # Prepare task data
+        # 准备任务数据
         task_data = {
             'project_directory': project_directory,
             'markdown_document_path': markdown_document_path,
@@ -145,17 +145,17 @@ class TaskServiceDB:
             'enable_review': request.enable_review,
         }
 
-        # Create task
+        # 创建任务
         task_id = await self.task_dao.create_task(task_data)
 
-        # Log task creation
+        # 记录任务创建日志
         await self.task_dao.add_log(task_id, 'INFO', f'Task created for project: {project["name"]} ({project_directory})')
 
-        # Return created task (without logs for better performance)
+        # 返回创建的任务（不含日志以提升性能）
         return await self.get_task_basic(task_id)
 
     async def update_task(self, task_id: str, request: TaskUpdateRequest) -> Optional[TaskModel]:
-        """Update a task"""
+        """更新任务"""
         await self.initialize()
 
         # 获取当前任务
@@ -205,24 +205,24 @@ class TaskServiceDB:
             success = await self.task_dao.update_task(task_id, updates)
             if success:
                 await self.task_dao.add_log(task_id, 'INFO', f'Task updated: {", ".join(updates.keys())}')
-                # Return updated task (without logs for better performance)
+                # 返回更新的任务（不含日志以提升性能）
                 return await self.get_task_basic(task_id)
 
         return None
 
     async def delete_task(self, task_id: str) -> bool:
-        """Delete a task"""
+        """删除任务"""
         await self.initialize()
         return await self.task_dao.delete_task(task_id)
 
     async def get_pending_tasks(self) -> List[TaskModel]:
-        """Get pending tasks"""
+        """获取待处理任务"""
         await self.initialize()
         tasks = await self.task_dao.get_pending_tasks()
         return [self._convert_to_model(task) for task in tasks]
 
     async def start_task(self, task_id: str) -> bool:
-        """Mark task as started"""
+        """标记任务为已开始"""
         await self.initialize()
         success = await self.task_dao.update_task(task_id, {'status': 'in_progress'})
         if success:
@@ -230,7 +230,7 @@ class TaskServiceDB:
         return success
 
     async def start_task_and_return(self, task_id: str) -> Optional[TaskModel]:
-        """Mark task as started and return updated task"""
+        """标记任务为已开始并返回更新后的任务"""
         await self.initialize()
         success = await self.task_dao.update_task(task_id, {'status': 'in_progress'})
         if success:
@@ -239,7 +239,7 @@ class TaskServiceDB:
         return None
 
     async def pause_task(self, task_id: str) -> bool:
-        """Mark task as paused"""
+        """标记任务为已暂停"""
         await self.initialize()
         success = await self.task_dao.update_task(task_id, {'status': 'paused'})
         if success:
@@ -247,7 +247,7 @@ class TaskServiceDB:
         return success
 
     async def complete_task(self, task_id: str) -> bool:
-        """Mark task as completed"""
+        """标记任务为已完成"""
         await self.initialize()
         completed_at = datetime.now().isoformat()
         success = await self.task_dao.update_task(task_id, {
@@ -271,7 +271,7 @@ class TaskServiceDB:
         return success
 
     async def fail_task(self, task_id: str, error_message: str) -> bool:
-        """Mark task as failed"""
+        """标记任务为失败"""
         await self.initialize()
         completed_at = datetime.now().isoformat()
         success = await self.task_dao.update_task(task_id, {
@@ -386,7 +386,7 @@ class TaskServiceDB:
         await self._flush_log_buffer()
 
     async def get_task_logs(self, task_id: str, limit: int = 100) -> List[TaskLogModel]:
-        """Get logs for a task"""
+        """获取任务日志"""
         await self.initialize()
         logs = await self.task_dao.get_logs(task_id, limit)
         return [TaskLogModel(**log) for log in logs]
@@ -402,7 +402,7 @@ class TaskServiceDB:
         return await self.task_dao.update_task(task_id, updates)
 
     def _convert_to_model(self, task_dict: dict) -> TaskModel:
-        """Convert database dict to Pydantic model"""
+        """将数据库字典转换为Pydantic模型"""
         logs = None
         if 'logs' in task_dict and task_dict['logs']:
             logs = [TaskLogModel(**log) for log in task_dict['logs']]

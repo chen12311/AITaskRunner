@@ -19,13 +19,13 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* 移动端遮罩层 */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={close} />
       )}
 
       <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex flex-col min-h-screen transition-transform lg:translate-x-0 border-r border-sidebar-border',
+        'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex flex-col h-screen transition-transform lg:translate-x-0 border-r border-sidebar-border',
         isOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">

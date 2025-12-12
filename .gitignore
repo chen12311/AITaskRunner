@@ -72,3 +72,6 @@ config.local.yaml
 CLAUDE.md
 *.db-wal
 *.db
+
+
+CLAUDE.md

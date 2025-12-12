@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button'
 import { useProjectStore } from '@/stores'
 import type { Project } from '@/types'
 
-// Schema validation messages will be handled by component-level translation
+// Schema 验证消息由组件级翻译处理
 const formSchema = z.object({
   name: z.string().min(1),
   directory_path: z.string().min(1),
@@ -71,7 +71,7 @@ export default function ProjectDialog({ open, onOpenChange, project }: ProjectDi
   }, [project, form])
 
   const onSubmit = async (data: FormData) => {
-    // Validate required fields with translated messages
+    // 使用翻译消息验证必填字段
     if (!data.name.trim()) {
       form.setError('name', { message: t('projects.dialog.form.nameRequired') })
       return

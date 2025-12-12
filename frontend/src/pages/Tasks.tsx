@@ -63,6 +63,8 @@ export function Component() {
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 20
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [taskLogs, setTaskLogs] = useState<Record<string, { level: string; message: string; created_at?: string; timestamp?: string }[]>>({})
   const [taskLogsTimestamp, setTaskLogsTimestamp] = useState<Record<string, number>>({}) // 日志缓存时间戳
@@ -107,6 +109,17 @@ export function Component() {
       return matchesSearch && matchesStatus
     })
   }, [tasks, search, statusFilter])
+
+  const totalPages = Math.ceil(filteredTasks.length / pageSize)
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredTasks.slice(start, start + pageSize)
+  }, [filteredTasks, currentPage])
+
+  // 筛选条件变化时重置页码
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter])
 
   const activeSessionCount = sessions.length
 
@@ -260,14 +273,14 @@ export function Component() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTasks.length === 0 ? (
+                {paginatedTasks.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       {t('tasks.noData')}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTasks.map((task) => (
+                  paginatedTasks.map((task) => (
                     <Fragment key={task.id}>
                       <TableRow key={task.id} className="cursor-pointer" onClick={() => toggleRow(task.id)}>
                         <TableCell>
@@ -378,6 +391,31 @@ export function Component() {
                 )}
               </TableBody>
             </Table>
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <span className="text-sm text-muted-foreground">
+                {t('common.pagination', { current: currentPage, total: totalPages, count: filteredTasks.length })}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  {t('common.prev')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  {t('common.next')}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

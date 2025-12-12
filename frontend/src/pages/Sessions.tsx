@@ -96,7 +96,7 @@ export function Component() {
     // 优化7.2: 移除轮询，改用 WebSocket 推送
   }, [fetchAllSessions])
 
-  // Filter sessions
+  // 过滤会话
   const filteredSessions = useMemo(() => {
     return sessions.filter((session) => {
       const matchesStatus = statusFilter === 'all' || session.status === statusFilter
@@ -105,13 +105,13 @@ export function Component() {
     })
   }, [sessions, statusFilter, search])
 
-  // Manual refresh
+  // 手动刷新
   const handleRefresh = useCallback(() => {
     fetchAllSessions()
     toast.success(t('sessions.toast.refreshed'))
   }, [fetchAllSessions, t])
 
-  // Stop a single session
+  // 停止单个会话
   const handleStopSession = useCallback(async () => {
     if (!sessionToStop) return
 
@@ -124,7 +124,7 @@ export function Component() {
     }
   }, [sessionToStop, stopSession])
 
-  // Pause a session
+  // 暂停会话
   const handlePauseSession = useCallback(async (taskId: string) => {
     try {
       await pauseSession(taskId)
@@ -133,7 +133,7 @@ export function Component() {
     }
   }, [pauseSession])
 
-  // Stop all sessions
+  // 停止所有会话
   const handleStopAllSessions = useCallback(async () => {
     try {
       await stopAllSessions()
@@ -143,13 +143,12 @@ export function Component() {
     }
   }, [stopAllSessions])
 
-  // 查看详情（跳转到日志页面）
-  // Navigate to logs for details
+  // 跳转到日志查看详情
   const handleViewDetails = useCallback((taskId: string) => {
     navigate(`/logs?taskId=${taskId}`)
   }, [navigate])
 
-  // Calculate runtime
+  // 计算运行时长
   const getRunningDuration = useCallback((startedAt: string) => {
     try {
       return formatDistanceToNow(new Date(startedAt), { locale: currentLocale, addSuffix: false })
@@ -158,7 +157,7 @@ export function Component() {
     }
   }, [currentLocale])
 
-  // Format timestamp
+  // 格式化时间戳
   const formatTime = useCallback((time: string) => {
     try {
       return format(new Date(time), 'yyyy-MM-dd HH:mm:ss', { locale: currentLocale })
@@ -167,7 +166,7 @@ export function Component() {
     }
   }, [currentLocale])
 
-  // Determine slot color for availability
+  // 根据可用性确定槽位颜色
   const getSlotColor = () => {
     if (stats.availableSlots === 0) return 'text-red-600'
     if (stats.availableSlots <= 1) return 'text-yellow-600'
@@ -176,7 +175,7 @@ export function Component() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Page header and actions */}
+      {/* 页面标题和操作 */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">{t('sessions.title')}</h1>
@@ -201,7 +200,7 @@ export function Component() {
         </div>
       </div>
 
-      {/* Stat cards */}
+      {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label={t('sessions.stats.active')}
@@ -233,7 +232,7 @@ export function Component() {
         />
       </div>
 
-      {/* Filters and search */}
+      {/* 筛选和搜索 */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">{t('sessions.listTitle')}</CardTitle>
@@ -262,7 +261,7 @@ export function Component() {
             />
           </div>
 
-          {/* Session table */}
+          {/* 会话表格 */}
           {loading && sessions.length === 0 ? (
             <div className="space-y-2">
               <Skeleton className="h-12 w-full" />
@@ -351,7 +350,7 @@ export function Component() {
         </CardContent>
       </Card>
 
-      {/* Stop single session confirmation */}
+      {/* 停止单个会话确认 */}
       <AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -367,7 +366,7 @@ export function Component() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Stop all sessions confirmation */}
+      {/* 停止所有会话确认 */}
       <AlertDialog open={stopAllDialogOpen} onOpenChange={setStopAllDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

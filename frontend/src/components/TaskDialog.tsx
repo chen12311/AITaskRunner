@@ -97,7 +97,7 @@ export default function TaskDialog({ open, onOpenChange, task, projects }: TaskD
   }, [task, form, projects])
 
   const onSubmit = async (data: FormData) => {
-    // Validate required fields with translated messages
+    // 使用翻译消息验证必填字段
     if (!data.project_id.trim()) {
       form.setError('project_id', { message: t('tasks.form.projectRequired') })
       return

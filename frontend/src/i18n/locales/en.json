@@ -15,7 +15,10 @@
     "submit": "Submit",
     "reset": "Reset",
     "all": "All",
-    "default": "Default"
+    "default": "Default",
+    "prev": "Previous",
+    "next": "Next",
+    "pagination": "Page {{current}}/{{total}}, {{count}} items"
   },
   "sidebar": {
     "title": "AITaskRunner",

@@ -146,7 +146,7 @@ class Database:
         async with self.get_connection() as conn:
             cursor = await conn.cursor()
 
-            # Tasks table
+            # 任务表
             await cursor.execute("""
                 CREATE TABLE IF NOT EXISTS tasks (
                     id TEXT PRIMARY KEY,
@@ -173,7 +173,7 @@ class Database:
             except aiosqlite.OperationalError:
                 pass  # 字段已存在
 
-            # Task execution logs
+            # 任务执行日志表
             await cursor.execute("""
                 CREATE TABLE IF NOT EXISTS task_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -185,13 +185,14 @@ class Database:
                 )
             """)
 
-            # Prompt templates table
+            # 提示词模板表
             await cursor.execute("""
                 CREATE TABLE IF NOT EXISTS prompt_templates (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     type TEXT NOT NULL,
                     content TEXT NOT NULL,
+                    content_en TEXT,
                     description TEXT,
                     is_default INTEGER DEFAULT 0,
                     created_at TEXT NOT NULL,
@@ -199,7 +200,13 @@ class Database:
                 )
             """)
 
-            # Projects table
+            # 数据库迁移：为旧表添加 content_en 字段
+            try:
+                await cursor.execute("ALTER TABLE prompt_templates ADD COLUMN content_en TEXT")
+            except aiosqlite.OperationalError:
+                pass  # 字段已存在
+
+            # 项目表
             await cursor.execute("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id TEXT PRIMARY KEY,
@@ -211,7 +218,7 @@ class Database:
                 )
             """)
 
-            # System settings table
+            # 系统设置表
             await cursor.execute("""
                 CREATE TABLE IF NOT EXISTS system_settings (
                     key TEXT PRIMARY KEY,
@@ -221,7 +228,7 @@ class Database:
                 )
             """)
 
-            # Create indexes
+            # 创建索引
             await cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_tasks_status
                 ON tasks(status)
@@ -268,7 +275,7 @@ class TaskDAO:
         self.db = db
 
     async def create_task(self, task_data: Dict[str, Any]) -> str:
-        """Create a new task"""
+        """创建新任务"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
@@ -299,7 +306,7 @@ class TaskDAO:
             return task_id
 
     async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """Get a task by ID (with logs)"""
+        """根据ID获取任务（含日志）"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
@@ -310,7 +317,7 @@ class TaskDAO:
 
             task = dict(row)
 
-            # Get recent logs
+            # 获取最近的日志
             await cursor.execute("""
                 SELECT * FROM task_logs
                 WHERE task_id = ?
@@ -323,7 +330,7 @@ class TaskDAO:
             return task
 
     async def get_task_basic(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """Get a task by ID without logs (optimized for list queries)"""
+        """根据ID获取任务（不含日志，列表查询优化）"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
@@ -331,7 +338,7 @@ class TaskDAO:
             return dict(row) if row else None
 
     async def get_all_tasks(self) -> List[Dict[str, Any]]:
-        """Get all tasks"""
+        """获取所有任务"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM tasks ORDER BY created_at DESC")
@@ -339,7 +346,7 @@ class TaskDAO:
             return [dict(row) for row in rows]
 
     async def get_pending_tasks(self) -> List[Dict[str, Any]]:
-        """Get tasks with pending or in_progress status"""
+        """获取待处理或进行中的任务"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("""
@@ -351,7 +358,7 @@ class TaskDAO:
             return [dict(row) for row in rows]
 
     async def update_task(self, task_id: str, updates: Dict[str, Any]) -> bool:
-        """Update a task"""
+        """更新任务"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
@@ -378,14 +385,14 @@ class TaskDAO:
             return cursor.rowcount > 0
 
     async def delete_task(self, task_id: str) -> bool:
-        """Delete a task"""
+        """删除任务"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
             return cursor.rowcount > 0
 
     async def add_log(self, task_id: str, level: str, message: str) -> int:
-        """Add a log entry for a task"""
+        """为任务添加日志条目"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
@@ -438,7 +445,7 @@ class TaskDAO:
             return len(logs)
 
     async def get_logs(self, task_id: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get logs for a task"""
+        """获取任务日志"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("""
@@ -458,7 +465,7 @@ class TemplateDAO:
         self.db = db
 
     async def create_template(self, template_data: Dict[str, Any]) -> str:
-        """Create a new template"""
+        """创建新模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
@@ -485,7 +492,7 @@ class TemplateDAO:
             return template_id
 
     async def get_template(self, template_id: str) -> Optional[Dict[str, Any]]:
-        """Get a template by ID"""
+        """根据ID获取模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM prompt_templates WHERE id = ?", (template_id,))
@@ -493,7 +500,7 @@ class TemplateDAO:
             return dict(row) if row else None
 
     async def get_template_by_type(self, template_type: str, use_default: bool = True) -> Optional[Dict[str, Any]]:
-        """Get template by type, optionally only default"""
+        """按类型获取模板，可选仅获取默认模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             if use_default:
@@ -513,7 +520,7 @@ class TemplateDAO:
             return dict(row) if row else None
 
     async def get_all_templates(self) -> List[Dict[str, Any]]:
-        """Get all templates"""
+        """获取所有模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM prompt_templates ORDER BY type, name")
@@ -521,7 +528,7 @@ class TemplateDAO:
             return [dict(row) for row in rows]
 
     async def get_templates_by_type(self, template_type: str) -> List[Dict[str, Any]]:
-        """Get all templates of a specific type"""
+        """获取指定类型的所有模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("""
@@ -533,7 +540,7 @@ class TemplateDAO:
             return [dict(row) for row in rows]
 
     async def update_template(self, template_id: str, updates: Dict[str, Any]) -> bool:
-        """Update a template"""
+        """更新模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
@@ -560,18 +567,18 @@ class TemplateDAO:
             return cursor.rowcount > 0
 
     async def delete_template(self, template_id: str) -> bool:
-        """Delete a template"""
+        """删除模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("DELETE FROM prompt_templates WHERE id = ?", (template_id,))
             return cursor.rowcount > 0
 
     async def set_default_template(self, template_id: str) -> bool:
-        """Set a template as default for its type"""
+        """设置模板为该类型的默认模板"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
-            # Get template type
+            # 获取模板类型
             await cursor.execute("SELECT type FROM prompt_templates WHERE id = ?", (template_id,))
             row = await cursor.fetchone()
             if not row:
@@ -579,14 +586,14 @@ class TemplateDAO:
 
             template_type = row['type']
 
-            # Clear other defaults of same type
+            # 清除同类型的其他默认设置
             await cursor.execute("""
                 UPDATE prompt_templates
                 SET is_default = 0
                 WHERE type = ?
             """, (template_type,))
 
-            # Set this one as default
+            # 设置当前项为默认
             await cursor.execute("""
                 UPDATE prompt_templates
                 SET is_default = 1, updated_at = ?
@@ -603,7 +610,7 @@ class ProjectDAO:
         self.db = db
 
     async def create_project(self, project_data: Dict[str, Any]) -> str:
-        """Create a new project"""
+        """创建新项目"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
@@ -626,7 +633,7 @@ class ProjectDAO:
             return project_id
 
     async def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
-        """Get a project by ID"""
+        """根据ID获取项目"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
@@ -634,7 +641,7 @@ class ProjectDAO:
             return dict(row) if row else None
 
     async def get_project_by_directory(self, directory_path: str) -> Optional[Dict[str, Any]]:
-        """Get a project by directory path"""
+        """根据目录路径获取项目"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM projects WHERE directory_path = ?", (directory_path,))
@@ -642,7 +649,7 @@ class ProjectDAO:
             return dict(row) if row else None
 
     async def get_all_projects(self) -> List[Dict[str, Any]]:
-        """Get all projects"""
+        """获取所有项目"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT * FROM projects ORDER BY name")
@@ -650,7 +657,7 @@ class ProjectDAO:
             return [dict(row) for row in rows]
 
     async def update_project(self, project_id: str, updates: Dict[str, Any]) -> bool:
-        """Update a project"""
+        """更新项目"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 
@@ -677,7 +684,7 @@ class ProjectDAO:
             return cursor.rowcount > 0
 
     async def delete_project(self, project_id: str) -> bool:
-        """Delete a project"""
+        """删除项目"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
@@ -691,7 +698,7 @@ class SettingsDAO:
         self.db = db
 
     async def get_setting(self, key: str) -> Optional[str]:
-        """Get a setting value"""
+        """获取设置值"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT value FROM system_settings WHERE key = ?", (key,))
@@ -699,7 +706,7 @@ class SettingsDAO:
             return row['value'] if row else None
 
     async def get_all_settings(self) -> Dict[str, str]:
-        """Get all settings"""
+        """获取所有设置"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
             await cursor.execute("SELECT key, value FROM system_settings")
@@ -707,7 +714,7 @@ class SettingsDAO:
             return {row['key']: row['value'] for row in rows}
 
     async def set_setting(self, key: str, value: str, description: str = "") -> bool:
-        """Set a setting value"""
+        """设置配置值"""
         async with self.db.get_connection() as conn:
             cursor = await conn.cursor()
 

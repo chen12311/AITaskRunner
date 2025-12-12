@@ -18,7 +18,7 @@ interface TaskState {
   filter: TaskStatus | 'all'
 }
 
-// Helper function to add display properties to a task
+// 为任务添加显示属性的辅助函数
 const enrichTask = (task: Task): Task => ({
   ...task,
   project_name: task.project_directory?.split('/').pop() || task.project_directory,

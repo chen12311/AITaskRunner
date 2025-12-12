@@ -103,7 +103,7 @@ export default function TemplateDialog({ open, onOpenChange, template }: Templat
   }, [template, form])
 
   const onSubmit = async (data: FormData) => {
-    // Validate required fields based on current language
+    // 根据当前语言验证必填字段
     if (isEnglish) {
       if (!data.name_en?.trim()) {
         form.setError('name_en', { message: t('templates.dialog.form.nameRequired') })
@@ -113,7 +113,7 @@ export default function TemplateDialog({ open, onOpenChange, template }: Templat
         form.setError('content_en', { message: t('templates.dialog.form.contentRequired') })
         return
       }
-      // For new templates in English mode, use English values as fallback for Chinese fields
+      // 英文模式下新建模板时，用英文值作为中文字段的回退值
       if (!template) {
         if (!data.name?.trim()) data.name = data.name_en || ''
         if (!data.content?.trim()) data.content = data.content_en || ''
@@ -130,7 +130,7 @@ export default function TemplateDialog({ open, onOpenChange, template }: Templat
         form.setError('content', { message: t('templates.dialog.form.contentRequired') })
         return
       }
-      // For new templates in Chinese mode, use Chinese values as fallback for English fields
+      // 中文模式下新建模板时，用中文值作为英文字段的回退值
       if (!template) {
         if (!data.name_en?.trim()) data.name_en = data.name
         if (!data.content_en?.trim()) data.content_en = data.content

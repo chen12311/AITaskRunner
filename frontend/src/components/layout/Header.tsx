@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { Sun, Moon, Menu } from 'lucide-react'
+import { Sun, Moon, Menu, Github } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ export default function Header() {
   }
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-4 lg:px-6">
+    <header className="h-16 border-b bg-card flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={toggle} className="lg:hidden">
           <Menu className="h-5 w-5" />
@@ -37,6 +37,11 @@ export default function Header() {
       </div>
       <div className="flex items-center gap-2">
         <LanguageSwitcher />
+        <Button variant="ghost" size="icon" asChild>
+          <a href="https://github.com/chen12311/AITaskRunner" target="_blank" rel="noopener noreferrer">
+            <Github className="h-5 w-5" />
+          </a>
+        </Button>
         <Button
           variant="ghost"
           size="icon"

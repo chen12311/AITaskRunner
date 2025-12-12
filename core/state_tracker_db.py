@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-# Add parent directory to path
+# 添加父目录到路径
 parent_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(parent_dir))
 
@@ -16,7 +16,7 @@ from backend.database.models import Database, TaskStateDAO, SessionStateDAO
 
 
 class TaskStatus(Enum):
-    """Task status enum"""
+    """任务状态枚举"""
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     PAUSED = "paused"
@@ -25,7 +25,7 @@ class TaskStatus(Enum):
 
 
 class SessionStatus(Enum):
-    """Session status enum"""
+    """会话状态枚举"""
     IDLE = "idle"
     ACTIVE = "active"
     RESTARTING = "restarting"
@@ -33,7 +33,7 @@ class SessionStatus(Enum):
 
 
 class StateTrackerDB:
-    """State tracker using SQLite database"""
+    """使用SQLite数据库的状态追踪器"""
 
     def __init__(self, db_path: str = "aitaskrunner.db"):
         """
@@ -72,7 +72,7 @@ class StateTrackerDB:
         if error_message is not None:
             updates['error_message'] = error_message
 
-        # Set timestamps based on status
+        # 根据状态设置时间戳
         now = datetime.now().isoformat()
         if status == TaskStatus.IN_PROGRESS:
             updates['started_at'] = now
@@ -192,7 +192,7 @@ class StateTrackerDB:
         """
         all_states = self.task_state_dao.get_all_states()
 
-        # Count by status
+        # 按状态统计
         status_counts = {
             'pending': 0,
             'in_progress': 0,
