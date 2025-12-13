@@ -322,6 +322,16 @@
       "notInstalled": "Not Installed",
       "hint": "Kitty terminal provides better session recovery. If not installed, please refer to the official documentation before selecting."
     },
+    "watchdog": {
+      "title": "Session Monitoring",
+      "description": "Configure watchdog parameters for detecting and auto-recovering terminated sessions",
+      "heartbeatTimeout": "Heartbeat Timeout",
+      "heartbeatTimeoutHint": "Session is considered abnormal after no response for this duration (60-3600 seconds)",
+      "checkInterval": "Check Interval",
+      "checkIntervalHint": "Interval for watchdog to check session status (10-300 seconds)",
+      "seconds": "seconds",
+      "hint": "Changes require service restart to take effect"
+    },
     "terminals": {
       "auto": "Auto Detect",
       "kitty": "Kitty",

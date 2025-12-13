@@ -16,6 +16,8 @@ export interface Settings {
   terminal_type?: string
   terminal?: string
   max_concurrent_sessions?: number
+  watchdog_heartbeat_timeout?: number
+  watchdog_check_interval?: number
 }
 
 export interface CLIOption {

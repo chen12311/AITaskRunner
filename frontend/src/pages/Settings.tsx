@@ -232,6 +232,51 @@ export function Component() {
 
       <Card>
         <CardHeader>
+          <CardTitle>{t('settings.watchdog.title')}</CardTitle>
+          <CardDescription>{t('settings.watchdog.description')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-4">
+              <Label htmlFor="heartbeat-timeout" className="min-w-32">{t('settings.watchdog.heartbeatTimeout')}</Label>
+              <Input
+                id="heartbeat-timeout"
+                type="number"
+                min={60}
+                max={3600}
+                value={settings?.watchdog_heartbeat_timeout || 300}
+                onChange={(e) => updateSetting('watchdog_heartbeat_timeout', parseInt(e.target.value) || 300)}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">{t('settings.watchdog.seconds')}</span>
+            </div>
+            <p className="text-xs text-muted-foreground ml-36">{t('settings.watchdog.heartbeatTimeoutHint')}</p>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-4">
+              <Label htmlFor="check-interval" className="min-w-32">{t('settings.watchdog.checkInterval')}</Label>
+              <Input
+                id="check-interval"
+                type="number"
+                min={10}
+                max={300}
+                value={settings?.watchdog_check_interval || 30}
+                onChange={(e) => updateSetting('watchdog_check_interval', parseInt(e.target.value) || 30)}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">{t('settings.watchdog.seconds')}</span>
+            </div>
+            <p className="text-xs text-muted-foreground ml-36">{t('settings.watchdog.checkIntervalHint')}</p>
+          </div>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>{t('settings.watchdog.hint')}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>{t('settings.terminal.title')}</CardTitle>
           <CardDescription>{t('settings.terminal.description')}</CardDescription>
         </CardHeader>
