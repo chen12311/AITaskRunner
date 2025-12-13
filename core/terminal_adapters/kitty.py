@@ -207,11 +207,36 @@ class KittyAdapter(TerminalAdapter):
         """
         检查 Kitty 窗口是否存活
 
-        通过检查 socket 文件是否存在来判断
+        双重检测：
+        1. 检查 socket 文件是否存在
+        2. 检查 Kitty 进程是否真的在运行（通过尝试连接 socket）
         """
         if not self.current_session or not self.current_session.socket_path:
             return False
-        return os.path.exists(self.current_session.socket_path)
+
+        socket_path = self.current_session.socket_path
+
+        # 1. 检查 socket 文件是否存在
+        if not os.path.exists(socket_path):
+            return False
+
+        # 2. 尝试连接 socket 验证进程是否真的存活
+        try:
+            import socket
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.settimeout(1.0)
+            sock.connect(socket_path)
+            sock.close()
+            return True
+        except (socket.error, OSError):
+            # 连接失败，说明进程已死但 socket 文件残留
+            # 清理残留的 socket 文件
+            try:
+                os.remove(socket_path)
+                print(f"🧹 清理残留 socket 文件: {socket_path}")
+            except OSError:
+                pass
+            return False
 
     async def close_window(self) -> bool:
         """关闭 Kitty 窗口"""

@@ -1,0 +1,194 @@
+"""
+会话看门狗 - 监控会话健康状态，自动恢复意外终止的会话
+"""
+import asyncio
+from datetime import datetime
+from typing import Dict, Optional, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.session.manager import SessionManager
+    from core.session.models import ManagedSession
+
+
+class SessionWatchdog:
+    """
+    会话看门狗 - 双重检测机制（心跳超时 + 终端存活）
+
+    检测逻辑：
+    1. 终端窗口不存在 → terminated（立即重启）
+    2. 心跳超时但窗口存活 → idle（可能在执行长任务，暂不处理）
+    """
+
+    def __init__(
+        self,
+        session_manager: "SessionManager",
+        task_service=None,
+        heartbeat_timeout: float = 300.0,
+        check_interval: float = 30.0,
+        on_timeout: Optional[Callable] = None
+    ):
+        """
+        Args:
+            session_manager: 会话管理器
+            task_service: 任务服务（用于查询任务状态）
+            heartbeat_timeout: 心跳超时时间（秒），默认5分钟
+            check_interval: 检查间隔（秒），默认30秒
+            on_timeout: 超时回调函数 async def callback(task_id, reason)
+        """
+        self._session_manager = session_manager
+        self._task_service = task_service
+        self._heartbeat_timeout = heartbeat_timeout
+        self._check_interval = check_interval
+        self._on_timeout = on_timeout
+
+        self._last_activity: Dict[str, datetime] = {}
+        self._watchdog_task: Optional[asyncio.Task] = None
+        self._running = False
+
+    def record_activity(self, task_id: str):
+        """记录任务活动（收到回调时调用）"""
+        self._last_activity[task_id] = datetime.now()
+
+    def clear_activity(self, task_id: str):
+        """清除任务活动记录（任务完成/移除时调用）"""
+        self._last_activity.pop(task_id, None)
+
+    async def start(self):
+        """启动看门狗"""
+        if self._running:
+            return
+        self._running = True
+        self._watchdog_task = asyncio.create_task(self._watchdog_loop())
+        print(f"🐕 会话看门狗已启动 (超时: {self._heartbeat_timeout}s, 间隔: {self._check_interval}s)")
+
+    async def stop(self):
+        """停止看门狗"""
+        self._running = False
+        if self._watchdog_task:
+            self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                pass
+            self._watchdog_task = None
+        print("🐕 会话看门狗已停止")
+
+    async def _watchdog_loop(self):
+        """监控主循环"""
+        while self._running:
+            try:
+                await asyncio.sleep(self._check_interval)
+                await self._check_all_sessions()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"⚠️ 看门狗异常: {e}")
+                await asyncio.sleep(60)
+
+    async def _check_all_sessions(self):
+        """检查所有活跃会话"""
+        active_sessions = self._session_manager.get_active_sessions()
+
+        for session in active_sessions:
+            task_id = session.task_id
+            health = self._check_session_health(task_id, session)
+
+            if health == "terminated":
+                await self._handle_terminated(task_id, session)
+
+    def _check_session_health(self, task_id: str, session: "ManagedSession") -> str:
+        """
+        检查会话健康状态
+
+        Returns:
+            "healthy" - 正常
+            "idle" - 心跳超时但窗口存活
+            "terminated" - 已终止
+        """
+        # 1. 检查终端窗口是否存活
+        if not session.verify_alive():
+            return "terminated"
+
+        # 2. 检查心跳超时
+        last_activity = self._last_activity.get(task_id)
+        if last_activity:
+            idle_seconds = (datetime.now() - last_activity).total_seconds()
+            if idle_seconds > self._heartbeat_timeout:
+                return "idle"
+
+        return "healthy"
+
+    async def _get_template_by_task_status(self, task_id: str) -> str:
+        """
+        根据任务状态选择对应的模板
+
+        Args:
+            task_id: 任务ID
+
+        Returns:
+            模板名称
+        """
+        if not self._task_service:
+            print(f"⚠️ TaskService 未注入，使用默认模板 continue_task")
+            return "continue_task"
+
+        try:
+            # 查询任务状态
+            task_data = await self._task_service.get_task_raw(task_id)
+            if not task_data:
+                print(f"⚠️ 任务 {task_id} 不存在，使用默认模板 continue_task")
+                return "continue_task"
+
+            task_status = task_data.get('status', '')
+
+            # 根据状态映射模板
+            if task_status == 'in_progress':
+                return "resume_task"
+            elif task_status == 'in_reviewing':
+                return "review"
+            else:
+                # 其他状态（pending/completed/failed）使用 continue_task
+                return "continue_task"
+
+        except Exception as e:
+            print(f"⚠️ 查询任务状态失败: {e}，使用默认模板 continue_task")
+            return "continue_task"
+
+    async def _handle_terminated(self, task_id: str, session: "ManagedSession"):
+        """处理已终止的会话"""
+        print(f"💀 检测到会话 {task_id} 意外终止，准备自动恢复...")
+
+        # 触发回调（通知前端）
+        if self._on_timeout:
+            try:
+                await self._on_timeout(task_id, "terminated")
+            except Exception as e:
+                print(f"⚠️ 超时回调执行失败: {e}")
+
+        # 自动重启会话
+        await self._auto_restart(task_id, session)
+
+    async def _auto_restart(self, task_id: str, session: "ManagedSession"):
+        """自动重启会话"""
+        try:
+            # 根据任务状态选择模板
+            template_name = await self._get_template_by_task_status(task_id)
+            print(f"🔄 根据任务状态选择模板: {template_name}")
+
+            success = await self._session_manager.start_session(
+                task_id=task_id,
+                project_dir=session.project_dir,
+                doc_path=session.doc_path,
+                cli_type=session.cli_type,
+                api_base_url=session.api_base_url,
+                template_name=template_name
+            )
+
+            if success:
+                self.record_activity(task_id)
+                print(f"✅ 会话 {task_id} 已自动恢复（模板: {template_name}）")
+            else:
+                print(f"❌ 会话 {task_id} 自动恢复失败")
+
+        except Exception as e:
+            print(f"❌ 自动重启异常: {e}")

@@ -5,9 +5,11 @@
 """
 from core.session.models import SessionStatus, ManagedSession
 from core.session.manager import SessionManager
+from core.session.watchdog import SessionWatchdog
 
 __all__ = [
     "SessionStatus",
     "ManagedSession",
     "SessionManager",
+    "SessionWatchdog",
 ]
