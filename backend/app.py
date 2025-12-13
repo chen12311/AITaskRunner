@@ -58,8 +58,8 @@ shared_db = get_shared_database(str(db_path), pool_size=10)  # 共享连接池�
 
 # 服务实例 - 所有服务共享同一个数据库连接池
 settings_service = SettingsService(db=shared_db)
-codex_service = CodexService(settings_service=settings_service)
 task_service = TaskServiceDB(db=shared_db)
+codex_service = CodexService(settings_service=settings_service, task_service=task_service)
 template_service = TemplateService(db=shared_db)
 project_service = ProjectService(db=shared_db)
 
@@ -67,6 +67,19 @@ project_service = ProjectService(db=shared_db)
 async def startup_event():
     """应用启动事件"""
     await codex_service.initialize()
+
+    # 启动会话看门狗
+    async def on_session_timeout(task_id: str, reason: str):
+        """会话超时回调 - 通知前端"""
+        await manager.broadcast({
+            "type": "session_timeout",
+            "data": {
+                "task_id": task_id,
+                "reason": reason,
+                "message": "会话意外终止，正在自动恢复..."
+            }
+        })
+    await codex_service.start_watchdog(on_timeout=on_session_timeout)
 
     # 优化4.4: 启动后台任务队列
     await background_queue.start()
@@ -119,6 +132,13 @@ async def shutdown_event():
                 print("✅ 服务关闭：已停止后台任务队列")
             except Exception as e:
                 print(f"⚠️ 停止后台任务队列失败: {e}")
+
+            # 停止会话看门狗
+            try:
+                await codex_service.stop_watchdog()
+                print("✅ 服务关闭：已停止会话看门狗")
+            except Exception as e:
+                print(f"⚠️ 停止会话看门狗失败: {e}")
 
             # 优化6.3: 关闭共享数据库连接池（只需关闭一次）
             try:
@@ -674,6 +694,9 @@ async def _complete_task_with_cleanup(task_id: str, log_message: str):
     """
     await task_service.complete_task(task_id)
     await codex_service.stop_session(task_id)
+    # 清除看门狗心跳记录
+    if codex_service.watchdog:
+        codex_service.watchdog.clear_activity(task_id)
     await task_service.add_task_log(task_id, "INFO", log_message)
     await manager.broadcast({
         "type": "task_completed",
@@ -710,10 +733,10 @@ async def _trigger_review_task(task_id: str, task):
     # 获取 API 基础地址
     api_base_url = await settings_service.get_setting('api_base_url') or 'http://localhost:8000'
 
-    # 停止当前会话
-    await codex_service.stop_session(task_id)
+    # 彻底移除旧会话（避免看门狗误判 STARTING 状态）
+    await codex_service.remove_session(task_id)
 
-    # 使用 review CLI 启动新会话（直接使用 review 模板）
+    # 使用 review CLI 启动全新会话（直接使用 review 模板）
     success = await codex_service.start_session(
         task_id=task_id,
         project_dir=task.project_directory,
@@ -761,6 +784,10 @@ async def notify_task_status(task_id: str, request: dict):
     - failed: 任务失败
     - in_progress: 任务进行中
     """
+    # 记录心跳（看门狗用于检测会话存活）
+    if codex_service.watchdog:
+        codex_service.watchdog.record_activity(task_id)
+
     status = request.get("status")
     message = request.get("message", "")
     error = request.get("error")
