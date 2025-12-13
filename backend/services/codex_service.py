@@ -101,6 +101,50 @@ class CodexService:
         # 此方法保留用于向后兼容，但不执行任何操作
         pass
 
+    async def get_terminal_adapter(self, terminal_type: str = None):
+        """
+        获取终端适配器（用于一键启动功能）
+
+        Args:
+            terminal_type: 终端类型 (iterm, kitty, windows_terminal, auto)
+                          如果为 None，则从设置读取
+
+        Returns:
+            终端适配器实例，如果不可用则返回 None
+        """
+        from core.terminal_adapters import (
+            KittyAdapter,
+            iTermAdapter,
+            WindowsTerminalAdapter,
+            get_default_terminal_adapter
+        )
+
+        # 如果没有指定终端类型，从设置读取
+        if terminal_type is None and self.settings_service:
+            terminal_type = await self.settings_service.get_terminal_type()
+
+        if terminal_type is None:
+            terminal_type = "auto"
+
+        adapter = None
+        if terminal_type == "kitty":
+            adapter = KittyAdapter()
+        elif terminal_type == "iterm":
+            adapter = iTermAdapter()
+        elif terminal_type == "windows_terminal":
+            adapter = WindowsTerminalAdapter()
+        elif terminal_type == "auto":
+            adapter = get_default_terminal_adapter()
+        else:
+            print(f"❌ 不支持的终端类型: {terminal_type}")
+            return None
+
+        if adapter and adapter.is_available():
+            return adapter
+        else:
+            print(f"❌ 终端不可用: {terminal_type}")
+            return None
+
     async def start_session(
         self,
         task_id: str,

@@ -257,6 +257,25 @@
     "createFailed": "创建失败",
     "updateSuccess": "项目已更新",
     "updateFailed": "更新失败",
+    "launch": "启动",
+    "launchSuccess": "终端已启动",
+    "launchTerminalSuccess": "终端已打开",
+    "launchFailed": "启动失败",
+    "launchMenu": {
+      "quick": "快速启动",
+      "selectCli": "选择 CLI",
+      "default": "默认",
+      "terminal": "终端"
+    },
+    "launchDialog": {
+      "title": "选择启动配置",
+      "description": "选择要使用的终端和 CLI 工具",
+      "terminal": "终端",
+      "cli": "CLI 工具",
+      "terminals": {
+        "auto": "自动选择"
+      }
+    },
     "table": {
       "name": "项目名称",
       "directory": "项目目录",

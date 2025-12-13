@@ -17,7 +17,7 @@ from backend.models.schemas import (
     TaskModel, TaskCreateRequest, TaskUpdateRequest,
     TaskActionResponse, MonitorStatusResponse,
     TemplateModel, TemplateCreateRequest, TemplateUpdateRequest,
-    ProjectModel, ProjectCreateRequest, ProjectUpdateRequest
+    ProjectModel, ProjectCreateRequest, ProjectUpdateRequest, ProjectLaunchRequest
 )
 from backend.services.codex_service import CodexService
 from backend.services.task_service_db import TaskServiceDB
@@ -1267,6 +1267,77 @@ async def delete_project(project_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"success": True, "message": f"Project {project_id} deleted"}
+
+
+@app.post("/api/projects/{project_id}/launch")
+async def launch_project(project_id: str, request: ProjectLaunchRequest = None):
+    """
+    一键启动项目终端
+
+    启动模式:
+    - cli: 打开终端并启动默认CLI工具（如 claude）
+    - terminal: 仅打开终端并进入项目目录
+    """
+    # 获取项目信息
+    project = await project_service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project_dir = project.directory_path
+    if not project_dir:
+        raise HTTPException(status_code=400, detail="Project directory not configured")
+
+    # 检查目录是否存在
+    if not os.path.isdir(project_dir):
+        raise HTTPException(status_code=400, detail=f"Project directory does not exist: {project_dir}")
+
+    # 确定要执行的命令
+    if request is None:
+        request = ProjectLaunchRequest()
+
+    if request.command:
+        # 使用自定义命令
+        command = request.command
+    elif request.mode == "terminal":
+        # 仅打开终端，不执行命令
+        command = ""
+    else:
+        # 使用默认CLI
+        default_cli = await settings_service.get_setting("default_cli")
+        cli_commands = {
+            "claude_code": "claude",
+            "codex": "codex",
+            "gemini": "gemini",
+            "aider": "aider",
+            "cursor": "cursor"
+        }
+        command = cli_commands.get(default_cli, "claude")
+
+    # 获取终端适配器（支持指定终端类型）
+    terminal_type = request.terminal if request.terminal else None
+    terminal_adapter = await codex_service.get_terminal_adapter(terminal_type)
+    if not terminal_adapter:
+        raise HTTPException(status_code=500, detail="No terminal adapter available")
+
+    # 创建终端窗口
+    try:
+        session = await terminal_adapter.create_window(
+            project_dir=project_dir,
+            command=command
+        )
+
+        if session:
+            return {
+                "success": True,
+                "message": f"Terminal launched for project: {project.name}",
+                "session_id": session.session_id,
+                "command": command or "(none)",
+                "project_directory": project_dir
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create terminal window")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to launch terminal: {str(e)}")
 
 
 # ==================== 系统设置API ====================

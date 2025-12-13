@@ -257,6 +257,25 @@
     "createFailed": "Create failed",
     "updateSuccess": "Project updated successfully",
     "updateFailed": "Update failed",
+    "launch": "Launch",
+    "launchSuccess": "Terminal launched",
+    "launchTerminalSuccess": "Terminal opened",
+    "launchFailed": "Launch failed",
+    "launchMenu": {
+      "quick": "Quick Launch",
+      "selectCli": "Select CLI",
+      "default": "Default",
+      "terminal": "Terminal"
+    },
+    "launchDialog": {
+      "title": "Launch Configuration",
+      "description": "Select terminal and CLI tool to use",
+      "terminal": "Terminal",
+      "cli": "CLI Tool",
+      "terminals": {
+        "auto": "Auto Select"
+      }
+    },
     "table": {
       "name": "Project Name",
       "directory": "Project Directory",

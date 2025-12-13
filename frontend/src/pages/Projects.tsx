@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Edit, Trash2 } from 'lucide-react'
+import { Plus, Edit, Trash2, Play, ChevronDown, Terminal, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 
@@ -23,9 +23,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { useProjectStore } from '@/stores'
+import { projectApi } from '@/api/projects'
+import { settingsApi } from '@/api/settings'
 import type { Project } from '@/types'
 import ProjectDialog from '@/components/ProjectDialog'
 
@@ -36,15 +45,44 @@ export function Component() {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
+  const [currentTerminal, setCurrentTerminal] = useState<string>('')
 
   useEffect(() => {
     fetchProjects()
+    // 获取当前终端设置
+    settingsApi.getAvailableTerminals().then(res => {
+      setCurrentTerminal(res.current)
+    }).catch(() => {})
   }, [fetchProjects])
 
   const handleEdit = useCallback((project: Project) => {
     setEditingProject(project)
     setDialogOpen(true)
   }, [])
+
+  // 启动项目 - 使用默认设置（快速启动，Claude Code）
+  const handleQuickLaunch = useCallback(async (projectId: string) => {
+    try {
+      const result = await projectApi.launchProject(projectId, { mode: 'cli' })
+      if (result.success) {
+        toast.success(t('projects.launchSuccess'))
+      }
+    } catch (error) {
+      toast.error(t('projects.launchFailed'))
+    }
+  }, [t])
+
+  // 使用指定 CLI 启动
+  const handleLaunchWithCli = useCallback(async (projectId: string, cli: string) => {
+    try {
+      const result = await projectApi.launchProject(projectId, { command: cli })
+      if (result.success) {
+        toast.success(t('projects.launchSuccess'))
+      }
+    } catch (error) {
+      toast.error(t('projects.launchFailed'))
+    }
+  }, [t])
 
   const handleCreate = useCallback(() => {
     setEditingProject(null)
@@ -92,7 +130,7 @@ export function Component() {
                   <TableHead>{t('projects.table.name')}</TableHead>
                   <TableHead>{t('projects.table.directory')}</TableHead>
                   <TableHead>{t('projects.table.description')}</TableHead>
-                  <TableHead className="w-[100px]">{t('projects.table.actions')}</TableHead>
+                  <TableHead className="w-[200px]">{t('projects.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -114,6 +152,62 @@ export function Component() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          {/* SplitButton 启动按钮 */}
+                          <div className="flex items-center">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="rounded-r-none px-2"
+                              onClick={() => handleQuickLaunch(project.id)}
+                            >
+                              <Play className="h-3.5 w-3.5 mr-1" />
+                              {t('projects.launch')}
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                                >
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-52">
+                                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                                  {t('projects.launchMenu.selectCli')}
+                                  {currentTerminal && (
+                                    <span className="ml-1">
+                                      ({t('projects.launchMenu.terminal')}: {
+                                        currentTerminal === 'auto' ? t('settings.terminals.auto') :
+                                        currentTerminal === 'kitty' ? t('settings.terminals.kitty') :
+                                        currentTerminal === 'iterm' ? t('settings.terminals.iterm') :
+                                        currentTerminal === 'windows_terminal' ? t('settings.terminals.windows_terminal') :
+                                        currentTerminal
+                                      })
+                                    </span>
+                                  )}
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => handleQuickLaunch(project.id)}>
+                                  <Zap className="h-4 w-4 mr-2" />
+                                  Claude Code
+                                  <span className="ml-auto text-xs text-muted-foreground">{t('projects.launchMenu.default')}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleLaunchWithCli(project.id, 'codex')}>
+                                  <Terminal className="h-4 w-4 mr-2" />
+                                  Codex CLI
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleLaunchWithCli(project.id, 'gemini')}>
+                                  <Terminal className="h-4 w-4 mr-2" />
+                                  Gemini CLI
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleLaunchWithCli(project.id, 'aider')}>
+                                  <Terminal className="h-4 w-4 mr-2" />
+                                  Aider
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(project)}>
                             <Edit className="h-4 w-4" />
                           </Button>
