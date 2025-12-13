@@ -265,7 +265,8 @@
       "quick": "快速启动",
       "selectCli": "选择 CLI",
       "default": "默认",
-      "terminal": "终端"
+      "terminal": "终端",
+      "dangerousMode": "危险模式"
     },
     "launchDialog": {
       "title": "选择启动配置",

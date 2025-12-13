@@ -265,7 +265,8 @@
       "quick": "Quick Launch",
       "selectCli": "Select CLI",
       "default": "Default",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "dangerousMode": "Dangerous Mode"
     },
     "launchDialog": {
       "title": "Launch Configuration",

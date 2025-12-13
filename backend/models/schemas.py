@@ -185,3 +185,4 @@ class ProjectLaunchRequest(BaseModel):
     command: Optional[str] = Field(None, description="自定义命令，不填则使用默认CLI")
     mode: str = Field("cli", description="启动模式: cli=启动CLI, terminal=仅打开终端")
     terminal: Optional[str] = Field(None, description="指定终端: iterm, kitty, windows_terminal")
+    dangerousMode: bool = Field(False, description="危险模式: 跳过所有确认提示")

@@ -28,8 +28,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { useProjectStore } from '@/stores'
@@ -46,6 +49,7 @@ export function Component() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
   const [currentTerminal, setCurrentTerminal] = useState<string>('')
+  const [dangerousModeEnabled, setDangerousModeEnabled] = useState(false)
 
   useEffect(() => {
     fetchProjects()
@@ -63,26 +67,26 @@ export function Component() {
   // 启动项目 - 使用默认设置（快速启动，Claude Code）
   const handleQuickLaunch = useCallback(async (projectId: string) => {
     try {
-      const result = await projectApi.launchProject(projectId, { mode: 'cli' })
+      const result = await projectApi.launchProject(projectId, { mode: 'cli', dangerousMode: dangerousModeEnabled })
       if (result.success) {
         toast.success(t('projects.launchSuccess'))
       }
     } catch (error) {
       toast.error(t('projects.launchFailed'))
     }
-  }, [t])
+  }, [t, dangerousModeEnabled])
 
   // 使用指定 CLI 启动
   const handleLaunchWithCli = useCallback(async (projectId: string, cli: string) => {
     try {
-      const result = await projectApi.launchProject(projectId, { command: cli })
+      const result = await projectApi.launchProject(projectId, { command: cli, dangerousMode: dangerousModeEnabled })
       if (result.success) {
         toast.success(t('projects.launchSuccess'))
       }
     } catch (error) {
       toast.error(t('projects.launchFailed'))
     }
-  }, [t])
+  }, [t, dangerousModeEnabled])
 
   const handleCreate = useCallback(() => {
     setEditingProject(null)
@@ -201,10 +205,20 @@ export function Component() {
                                   <Terminal className="h-4 w-4 mr-2" />
                                   Gemini CLI
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleLaunchWithCli(project.id, 'aider')}>
-                                  <Terminal className="h-4 w-4 mr-2" />
-                                  Aider
-                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <div className="px-2 py-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <Label htmlFor={`dangerous-mode-${project.id}`} className="text-xs text-destructive cursor-pointer">
+                                      {t('projects.launchMenu.dangerousMode')}
+                                    </Label>
+                                    <Switch
+                                      id={`dangerous-mode-${project.id}`}
+                                      checked={dangerousModeEnabled}
+                                      onCheckedChange={setDangerousModeEnabled}
+                                      className="scale-75"
+                                    />
+                                  </div>
+                                </div>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>

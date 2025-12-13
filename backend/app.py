@@ -1308,10 +1308,20 @@ async def launch_project(project_id: str, request: ProjectLaunchRequest = None):
             "claude_code": "claude",
             "codex": "codex",
             "gemini": "gemini",
-            "aider": "aider",
             "cursor": "cursor"
         }
         command = cli_commands.get(default_cli, "claude")
+
+    # 处理危险模式参数
+    if request.dangerousMode and command:
+        dangerous_flags = {
+            "claude": "--dangerously-skip-permissions",
+            "codex": "--full-auto",
+            "gemini": "-y"
+        }
+        flag = dangerous_flags.get(command)
+        if flag:
+            command = f"{command} {flag}"
 
     # 获取终端适配器（支持指定终端类型）
     terminal_type = request.terminal if request.terminal else None

@@ -5,6 +5,7 @@ export interface LaunchProjectData {
   command?: string
   mode?: 'cli' | 'terminal'
   terminal?: 'iterm' | 'kitty' | 'windows_terminal'
+  dangerousMode?: boolean
 }
 
 export interface LaunchProjectResponse {
