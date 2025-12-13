@@ -72,3 +72,4 @@ config.local.yaml
 CLAUDE.md
 *.db-wal
 *.db
+.playwright-mcp
