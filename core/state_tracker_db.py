@@ -1,18 +1,12 @@
 """
 State Tracker using SQLite database
 """
-import sys
+import json
+import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-
-# 添加父目录到路径
-parent_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(parent_dir))
-
-from backend.database.models import Database, TaskStateDAO, SessionStateDAO
 
 
 class TaskStatus(Enum):
@@ -32,6 +26,186 @@ class SessionStatus(Enum):
     ERROR = "error"
 
 
+class TaskStateDAO:
+    """Lightweight DAO for task state tracking (sync, SQLite)"""
+
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self._initialized = False
+        self._ensure_table()
+
+    def _connect(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _ensure_table(self):
+        if self._initialized:
+            return
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS task_states (
+                    task_id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    progress REAL DEFAULT 0.0,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    last_updated TEXT,
+                    error_message TEXT,
+                    restart_count INTEGER DEFAULT 0
+                )
+                """
+            )
+        self._initialized = True
+
+    def update_task_state(self, task_id: str, updates: Dict[str, Any]):
+        """Insert or update a task state record"""
+        now = datetime.now().isoformat()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM task_states WHERE task_id = ?", (task_id,)
+            ).fetchone()
+
+            base = {
+                "task_id": task_id,
+                "status": TaskStatus.PENDING.value,
+                "progress": 0.0,
+                "started_at": None,
+                "completed_at": None,
+                "last_updated": now,
+                "error_message": None,
+                "restart_count": 0,
+            }
+
+            if row:
+                base.update(dict(row))
+
+            base.update(updates)
+            base["last_updated"] = now
+
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO task_states (
+                    task_id, status, progress, started_at, completed_at,
+                    last_updated, error_message, restart_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    base["task_id"],
+                    base["status"],
+                    base.get("progress", 0.0),
+                    base.get("started_at"),
+                    base.get("completed_at"),
+                    base["last_updated"],
+                    base.get("error_message"),
+                    base.get("restart_count", 0),
+                ),
+            )
+
+    def get_task_state(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single task state"""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM task_states WHERE task_id = ?", (task_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_all_states(self) -> List[Dict[str, Any]]:
+        """Get all task states"""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM task_states").fetchall()
+            return [dict(row) for row in rows]
+
+
+class SessionStateDAO:
+    """Lightweight DAO for session state tracking (sync, SQLite)"""
+
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self._initialized = False
+        self._ensure_table()
+
+    def _connect(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _ensure_table(self):
+        if self._initialized:
+            return
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS session_states (
+                    session_id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    current_task TEXT,
+                    context_usage TEXT,
+                    last_updated TEXT
+                )
+                """
+            )
+        self._initialized = True
+
+    def update_session(self, session_id: str, updates: Dict[str, Any]):
+        """Insert or update a session record"""
+        now = datetime.now().isoformat()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM session_states WHERE session_id = ?", (session_id,)
+            ).fetchone()
+
+            base = {
+                "session_id": session_id,
+                "status": SessionStatus.IDLE.value,
+                "current_task": None,
+                "context_usage": None,
+                "last_updated": now,
+            }
+
+            if row:
+                base.update(dict(row))
+
+            base.update(updates)
+            base["last_updated"] = now
+
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO session_states (
+                    session_id, status, current_task, context_usage, last_updated
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    base["session_id"],
+                    base["status"],
+                    base.get("current_task"),
+                    json.dumps(base.get("context_usage"))
+                    if base.get("context_usage") is not None
+                    else None,
+                    base["last_updated"],
+                ),
+            )
+
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single session state"""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM session_states WHERE session_id = ?", (session_id,)
+            ).fetchone()
+
+            if not row:
+                return None
+
+            data = dict(row)
+            if data.get("context_usage"):
+                try:
+                    data["context_usage"] = json.loads(data["context_usage"])
+                except (TypeError, json.JSONDecodeError):
+                    data["context_usage"] = None
+            return data
+
+
 class StateTrackerDB:
     """使用SQLite数据库的状态追踪器"""
 
@@ -42,9 +216,9 @@ class StateTrackerDB:
         Args:
             db_path: Database file path
         """
-        self.db = Database(db_path)
-        self.task_state_dao = TaskStateDAO(self.db)
-        self.session_state_dao = SessionStateDAO(self.db)
+        db_path = str(Path(db_path))
+        self.task_state_dao = TaskStateDAO(db_path)
+        self.session_state_dao = SessionStateDAO(db_path)
 
     def update_task_status(
         self,

@@ -9,7 +9,7 @@ from pathlib import Path
 parent_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(parent_dir))
 
-from core.session import SessionManager, ManagedSession, SessionStatus
+from core.session import SessionManager, ManagedSession, SessionStatus, SessionWatchdog
 from backend.models.schemas import CodexStatusModel
 from typing import Optional, List, TYPE_CHECKING
 
@@ -27,6 +27,7 @@ class CodexService:
     def __init__(
         self,
         settings_service: "SettingsService" = None,
+        task_service=None,
         max_concurrent_sessions: int = 3,
         db_path: str = None
     ):
@@ -35,10 +36,12 @@ class CodexService:
 
         Args:
             settings_service: 设置服务实例
+            task_service: 任务服务实例（用于看门狗查询任务状态）
             max_concurrent_sessions: 最大并发会话数
             db_path: 数据库路径
         """
         self.settings_service = settings_service
+        self.task_service = task_service
         self._db_path = db_path or str(parent_dir / "aitaskrunner.db")
 
         # 使用 SessionManager 管理多个会话
@@ -47,6 +50,9 @@ class CodexService:
             settings_service=settings_service,
             db_path=self._db_path
         )
+
+        # 会话看门狗
+        self.watchdog: Optional[SessionWatchdog] = None
 
         # 向后兼容：保留 current_task_id，但不再是主要依赖
         self._current_task_id: Optional[str] = None
@@ -59,6 +65,30 @@ class CodexService:
             if max_concurrent:
                 await self.session_manager.update_max_concurrent(max_concurrent)
 
+    async def start_watchdog(self, on_timeout=None):
+        """启动会话看门狗"""
+        if self.watchdog is None:
+            # 从设置读取看门狗参数
+            heartbeat_timeout = 300.0
+            check_interval = 30.0
+            if self.settings_service:
+                heartbeat_timeout = await self.settings_service.get_watchdog_heartbeat_timeout()
+                check_interval = await self.settings_service.get_watchdog_check_interval()
+
+            self.watchdog = SessionWatchdog(
+                session_manager=self.session_manager,
+                task_service=self.task_service,
+                heartbeat_timeout=heartbeat_timeout,
+                check_interval=check_interval,
+                on_timeout=on_timeout
+            )
+        await self.watchdog.start()
+
+    async def stop_watchdog(self):
+        """停止会话看门狗"""
+        if self.watchdog:
+            await self.watchdog.stop()
+
     async def update_terminal_adapter(self):
         """更新终端适配器（设置变更时调用）"""
         # 新架构中，每个会话有自己的终端适配器
@@ -70,6 +100,50 @@ class CodexService:
         # 新架构中，每个会话有自己的 CLI 适配器
         # 此方法保留用于向后兼容，但不执行任何操作
         pass
+
+    async def get_terminal_adapter(self, terminal_type: str = None):
+        """
+        获取终端适配器（用于一键启动功能）
+
+        Args:
+            terminal_type: 终端类型 (iterm, kitty, windows_terminal, auto)
+                          如果为 None，则从设置读取
+
+        Returns:
+            终端适配器实例，如果不可用则返回 None
+        """
+        from core.terminal_adapters import (
+            KittyAdapter,
+            iTermAdapter,
+            WindowsTerminalAdapter,
+            get_default_terminal_adapter
+        )
+
+        # 如果没有指定终端类型，从设置读取
+        if terminal_type is None and self.settings_service:
+            terminal_type = await self.settings_service.get_terminal_type()
+
+        if terminal_type is None:
+            terminal_type = "auto"
+
+        adapter = None
+        if terminal_type == "kitty":
+            adapter = KittyAdapter()
+        elif terminal_type == "iterm":
+            adapter = iTermAdapter()
+        elif terminal_type == "windows_terminal":
+            adapter = WindowsTerminalAdapter()
+        elif terminal_type == "auto":
+            adapter = get_default_terminal_adapter()
+        else:
+            print(f"❌ 不支持的终端类型: {terminal_type}")
+            return None
+
+        if adapter and adapter.is_available():
+            return adapter
+        else:
+            print(f"❌ 终端不可用: {terminal_type}")
+            return None
 
     async def start_session(
         self,
@@ -107,6 +181,9 @@ class CodexService:
             if success:
                 # 向后兼容：更新 current_task_id
                 self._current_task_id = task_id
+                # 记录心跳（看门狗用于检测会话存活）
+                if self.watchdog:
+                    self.watchdog.record_activity(task_id)
 
             return success
 
@@ -132,6 +209,10 @@ class CodexService:
             return
 
         await self.session_manager.stop_session(task_id)
+
+        # 清除看门狗心跳记录
+        if self.watchdog:
+            self.watchdog.clear_activity(task_id)
 
         # 向后兼容：如果停止的是当前任务，清除 current_task_id
         if task_id == self._current_task_id:
@@ -279,6 +360,10 @@ class CodexService:
             是否成功
         """
         result = await self.session_manager.remove_session(task_id)
+
+        # 清除看门狗心跳记录
+        if self.watchdog:
+            self.watchdog.clear_activity(task_id)
 
         # 向后兼容：如果移除的是当前任务，清除 current_task_id
         if task_id == self._current_task_id:

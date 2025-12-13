@@ -72,7 +72,6 @@ config.local.yaml
 CLAUDE.md
 *.db-wal
 *.db
-
-
-aitaskrunner.db-shm
-aitaskrunner.db-wal
+*.db-shm
+*.db-wal
+.playwright-mcp/

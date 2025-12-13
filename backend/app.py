@@ -17,7 +17,7 @@ from backend.models.schemas import (
     TaskModel, TaskCreateRequest, TaskUpdateRequest,
     TaskActionResponse, MonitorStatusResponse,
     TemplateModel, TemplateCreateRequest, TemplateUpdateRequest,
-    ProjectModel, ProjectCreateRequest, ProjectUpdateRequest
+    ProjectModel, ProjectCreateRequest, ProjectUpdateRequest, ProjectLaunchRequest
 )
 from backend.services.codex_service import CodexService
 from backend.services.task_service_db import TaskServiceDB
@@ -58,8 +58,8 @@ shared_db = get_shared_database(str(db_path), pool_size=10)  # 共享连接池�
 
 # 服务实例 - 所有服务共享同一个数据库连接池
 settings_service = SettingsService(db=shared_db)
-codex_service = CodexService(settings_service=settings_service)
 task_service = TaskServiceDB(db=shared_db)
+codex_service = CodexService(settings_service=settings_service, task_service=task_service)
 template_service = TemplateService(db=shared_db)
 project_service = ProjectService(db=shared_db)
 
@@ -67,6 +67,19 @@ project_service = ProjectService(db=shared_db)
 async def startup_event():
     """应用启动事件"""
     await codex_service.initialize()
+
+    # 启动会话看门狗
+    async def on_session_timeout(task_id: str, reason: str):
+        """会话超时回调 - 通知前端"""
+        await manager.broadcast({
+            "type": "session_timeout",
+            "data": {
+                "task_id": task_id,
+                "reason": reason,
+                "message": "会话意外终止，正在自动恢复..."
+            }
+        })
+    await codex_service.start_watchdog(on_timeout=on_session_timeout)
 
     # 优化4.4: 启动后台任务队列
     await background_queue.start()
@@ -119,6 +132,13 @@ async def shutdown_event():
                 print("✅ 服务关闭：已停止后台任务队列")
             except Exception as e:
                 print(f"⚠️ 停止后台任务队列失败: {e}")
+
+            # 停止会话看门狗
+            try:
+                await codex_service.stop_watchdog()
+                print("✅ 服务关闭：已停止会话看门狗")
+            except Exception as e:
+                print(f"⚠️ 停止会话看门狗失败: {e}")
 
             # 优化6.3: 关闭共享数据库连接池（只需关闭一次）
             try:
@@ -660,6 +680,9 @@ async def _complete_task_with_cleanup(task_id: str, log_message: str):
     """
     await task_service.complete_task(task_id)
     await codex_service.stop_session(task_id)
+    # 清除看门狗心跳记录
+    if codex_service.watchdog:
+        codex_service.watchdog.clear_activity(task_id)
     await task_service.add_task_log(task_id, "INFO", log_message)
     await manager.broadcast({
         "type": "task_completed",
@@ -696,10 +719,10 @@ async def _trigger_review_task(task_id: str, task):
     # 获取 API 基础地址
     api_base_url = await settings_service.get_setting('api_base_url') or 'http://localhost:8000'
 
-    # 停止当前会话
-    await codex_service.stop_session(task_id)
+    # 彻底移除旧会话（避免看门狗误判 STARTING 状态）
+    await codex_service.remove_session(task_id)
 
-    # 使用 review CLI 启动新会话（直接使用 review 模板）
+    # 使用 review CLI 启动全新会话（直接使用 review 模板）
     success = await codex_service.start_session(
         task_id=task_id,
         project_dir=task.project_directory,
@@ -747,6 +770,10 @@ async def notify_task_status(task_id: str, request: dict):
     - failed: 任务失败
     - in_progress: 任务进行中
     """
+    # 记录心跳（看门狗用于检测会话存活）
+    if codex_service.watchdog:
+        codex_service.watchdog.record_activity(task_id)
+
     status = request.get("status")
     message = request.get("message", "")
     error = request.get("error")
@@ -1238,6 +1265,87 @@ async def delete_project(project_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"success": True, "message": f"Project {project_id} deleted"}
+
+
+@app.post("/api/projects/{project_id}/launch")
+async def launch_project(project_id: str, request: ProjectLaunchRequest = None):
+    """
+    一键启动项目终端
+
+    启动模式:
+    - cli: 打开终端并启动默认CLI工具（如 claude）
+    - terminal: 仅打开终端并进入项目目录
+    """
+    # 获取项目信息
+    project = await project_service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project_dir = project.directory_path
+    if not project_dir:
+        raise HTTPException(status_code=400, detail="Project directory not configured")
+
+    # 检查目录是否存在
+    if not os.path.isdir(project_dir):
+        raise HTTPException(status_code=400, detail=f"Project directory does not exist: {project_dir}")
+
+    # 确定要执行的命令
+    if request is None:
+        request = ProjectLaunchRequest()
+
+    if request.command:
+        # 使用自定义命令
+        command = request.command
+    elif request.mode == "terminal":
+        # 仅打开终端，不执行命令
+        command = ""
+    else:
+        # 使用默认CLI
+        default_cli = await settings_service.get_setting("default_cli")
+        cli_commands = {
+            "claude_code": "claude",
+            "codex": "codex",
+            "gemini": "gemini",
+            "cursor": "cursor"
+        }
+        command = cli_commands.get(default_cli, "claude")
+
+    # 处理危险模式参数
+    if request.dangerousMode and command:
+        dangerous_flags = {
+            "claude": "--dangerously-skip-permissions",
+            "codex": "--full-auto",
+            "gemini": "-y"
+        }
+        flag = dangerous_flags.get(command)
+        if flag:
+            command = f"{command} {flag}"
+
+    # 获取终端适配器（支持指定终端类型）
+    terminal_type = request.terminal if request.terminal else None
+    terminal_adapter = await codex_service.get_terminal_adapter(terminal_type)
+    if not terminal_adapter:
+        raise HTTPException(status_code=500, detail="No terminal adapter available")
+
+    # 创建终端窗口
+    try:
+        session = await terminal_adapter.create_window(
+            project_dir=project_dir,
+            command=command
+        )
+
+        if session:
+            return {
+                "success": True,
+                "message": f"Terminal launched for project: {project.name}",
+                "session_id": session.session_id,
+                "command": command or "(none)",
+                "project_directory": project_dir
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create terminal window")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to launch terminal: {str(e)}")
 
 
 # ==================== 系统设置API ====================

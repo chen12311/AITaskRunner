@@ -21,6 +21,8 @@ class SettingsService:
         "max_concurrent_sessions": "3",  # 最大并发会话数
         "language": "zh",  # 界面语言：zh 或 en
         "skip_completion_check": "false",  # 是否跳过完成检测
+        "watchdog_heartbeat_timeout": "300",  # 看门狗心跳超时（秒）
+        "watchdog_check_interval": "30",  # 看门狗检查间隔（秒）
     }
 
     # 支持的终端类型（按平台）
@@ -77,6 +79,8 @@ class SettingsService:
             "max_concurrent_sessions": "最大并发会话数，默认 3",
             "language": "界面语言：zh (中文) 或 en (English)",
             "skip_completion_check": "是否跳过完成检测：true 跳过，false 检测",
+            "watchdog_heartbeat_timeout": "看门狗心跳超时时间（秒），默认 300",
+            "watchdog_check_interval": "看门狗检查间隔（秒），默认 30",
         }
         return descriptions.get(key, "")
 
@@ -231,3 +235,35 @@ class SettingsService:
         if language not in valid_languages:
             raise ValueError(f"不支持的语言: {language}，支持: {', '.join(valid_languages)}")
         return await self.set_setting("language", language)
+
+    async def get_watchdog_heartbeat_timeout(self) -> float:
+        """获取看门狗心跳超时时间（秒）"""
+        value = await self.get_setting("watchdog_heartbeat_timeout")
+        try:
+            return float(value) if value else 300.0
+        except ValueError:
+            return 300.0
+
+    async def set_watchdog_heartbeat_timeout(self, timeout: float) -> bool:
+        """设置看门狗心跳超时时间（秒）"""
+        if timeout < 60:
+            raise ValueError("心跳超时时间不能小于 60 秒")
+        if timeout > 3600:
+            raise ValueError("心跳超时时间不能超过 3600 秒")
+        return await self.set_setting("watchdog_heartbeat_timeout", str(int(timeout)))
+
+    async def get_watchdog_check_interval(self) -> float:
+        """获取看门狗检查间隔（秒）"""
+        value = await self.get_setting("watchdog_check_interval")
+        try:
+            return float(value) if value else 30.0
+        except ValueError:
+            return 30.0
+
+    async def set_watchdog_check_interval(self, interval: float) -> bool:
+        """设置看门狗检查间隔（秒）"""
+        if interval < 10:
+            raise ValueError("检查间隔不能小于 10 秒")
+        if interval > 300:
+            raise ValueError("检查间隔不能超过 300 秒")
+        return await self.set_setting("watchdog_check_interval", str(int(interval)))

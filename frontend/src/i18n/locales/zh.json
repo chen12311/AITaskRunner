@@ -260,6 +260,26 @@
     "createFailed": "创建失败",
     "updateSuccess": "项目已更新",
     "updateFailed": "更新失败",
+    "launch": "启动",
+    "launchSuccess": "终端已启动",
+    "launchTerminalSuccess": "终端已打开",
+    "launchFailed": "启动失败",
+    "launchMenu": {
+      "quick": "快速启动",
+      "selectCli": "选择 CLI",
+      "default": "默认",
+      "terminal": "终端",
+      "dangerousMode": "危险模式"
+    },
+    "launchDialog": {
+      "title": "选择启动配置",
+      "description": "选择要使用的终端和 CLI 工具",
+      "terminal": "终端",
+      "cli": "CLI 工具",
+      "terminals": {
+        "auto": "自动选择"
+      }
+    },
     "table": {
       "name": "项目名称",
       "directory": "项目目录",
@@ -324,6 +344,16 @@
       "description": "选择用于执行任务的终端",
       "notInstalled": "未安装",
       "hint": "Kitty 终端支持更好的会话恢复体验，如未安装请参考官方文档进行安装后再选择。"
+    },
+    "watchdog": {
+      "title": "会话监控设置",
+      "description": "配置会话看门狗参数，用于检测和自动恢复意外终止的会话",
+      "heartbeatTimeout": "心跳超时时间",
+      "heartbeatTimeoutHint": "会话无响应超过此时间后判定为异常（60-3600秒）",
+      "checkInterval": "检查间隔",
+      "checkIntervalHint": "看门狗检查会话状态的时间间隔（10-300秒）",
+      "seconds": "秒",
+      "hint": "修改后需要重启服务才能生效"
     },
     "terminals": {
       "auto": "自动检测",
