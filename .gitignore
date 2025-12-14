@@ -76,3 +76,5 @@ CLAUDE.md
 .playwright-mcp/
 .coverage
 docs/
+
+test_projects/
