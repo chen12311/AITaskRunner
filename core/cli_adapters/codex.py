@@ -29,9 +29,8 @@ class CodexAdapter(CLIAdapter):
             self._config = CLIConfig(
                 cli_type=CLIType.CODEX,
                 command=self._codex_path,
-                # --full-auto = --sandbox workspace-write --ask-for-approval on-request
-                # 使用 never 表示完全自动
-                auto_approve_flag="--full-auto",
+                # --yolo 完全自动模式，跳过所有确认
+                auto_approve_flag="--yolo",
                 clear_command=None,  # Codex 不支持 /clear
                 status_command=None,  # Codex 不支持状态查询
                 resume_flag="resume --last",

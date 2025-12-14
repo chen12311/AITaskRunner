@@ -29,8 +29,8 @@ class GeminiAdapter(CLIAdapter):
             self._config = CLIConfig(
                 cli_type=CLIType.GEMINI,
                 command=self._gemini_path,
-                # auto_edit 模式自动批准文件编辑
-                auto_approve_flag="--approval-mode auto_edit",
+                # yolo 完全自动模式，跳过所有确认
+                auto_approve_flag="-y",
                 clear_command="/clear",  # Gemini 支持 /clear
                 status_command=None,  # Gemini 不支持状态查询
                 resume_flag="--resume",
