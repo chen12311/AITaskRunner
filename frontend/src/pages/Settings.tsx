@@ -20,7 +20,12 @@ function transformSettings(rawSettings: SettingsMap): Settings {
   const result: Settings = {}
   for (const [key, item] of Object.entries(rawSettings)) {
     if (item && item.value !== undefined) {
-      (result as Record<string, unknown>)[key] = item.value
+      let value = item.value
+      // 布尔类型字段需要转换字符串为布尔值
+      if (key === 'review_enabled' || key === 'enable_review') {
+        value = value === true || value === 'true' || value === '1'
+      }
+      (result as Record<string, unknown>)[key] = value
     }
   }
   return result
