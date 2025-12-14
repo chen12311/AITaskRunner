@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 from backend.models.schemas import (
     TaskModel, TaskCreateRequest, TaskUpdateRequest,
     TaskActionResponse, MonitorStatusResponse,
+    BatchDeleteRequest, BatchUpdateStatusRequest, BatchActionResponse,
     TemplateModel, TemplateCreateRequest, TemplateUpdateRequest,
     ProjectModel, ProjectCreateRequest, ProjectUpdateRequest, ProjectLaunchRequest
 )
@@ -436,6 +437,194 @@ async def delete_task(task_id: str):
     )
 
 
+# ==================== 批量操作API ====================
+
+@app.post("/api/tasks/batch/delete", response_model=BatchActionResponse)
+async def batch_delete_tasks(request: BatchDeleteRequest):
+    """批量删除任务"""
+    if not request.task_ids:
+        raise HTTPException(status_code=400, detail="task_ids cannot be empty")
+
+    try:
+        affected_count, failed_ids = await task_service.batch_delete_tasks(request.task_ids)
+
+        # 广播批量删除事件
+        await manager.broadcast({
+            "type": "tasks_batch_deleted",
+            "data": {
+                "task_ids": [tid for tid in request.task_ids if tid not in failed_ids],
+                "affected_count": affected_count
+            }
+        })
+
+        return BatchActionResponse(
+            success=len(failed_ids) == 0,
+            message=f"Deleted {affected_count} tasks" + (f", {len(failed_ids)} failed" if failed_ids else ""),
+            affected_count=affected_count,
+            failed_ids=failed_ids
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tasks/batch/status", response_model=BatchActionResponse)
+async def batch_update_status(request: BatchUpdateStatusRequest):
+    """批量修改任务状态"""
+    if not request.task_ids:
+        raise HTTPException(status_code=400, detail="task_ids cannot be empty")
+
+    valid_statuses = ['pending', 'in_progress', 'completed', 'failed']
+    if request.status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status: {request.status}. Valid values: {', '.join(valid_statuses)}"
+        )
+
+    try:
+        affected_count, failed_ids = await task_service.batch_update_status(
+            request.task_ids, request.status
+        )
+
+        # 广播批量状态更新事件
+        await manager.broadcast({
+            "type": "tasks_batch_status_updated",
+            "data": {
+                "task_ids": [tid for tid in request.task_ids if tid not in failed_ids],
+                "status": request.status,
+                "affected_count": affected_count
+            }
+        })
+
+        return BatchActionResponse(
+            success=len(failed_ids) == 0,
+            message=f"Updated {affected_count} tasks to {request.status}" + (f", {len(failed_ids)} failed" if failed_ids else ""),
+            affected_count=affected_count,
+            failed_ids=failed_ids
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tasks/batch/start")
+async def batch_start_tasks():
+    """启动所有待处理任务（pending 和 in_reviewing 状态），每个项目只启动一个任务"""
+    try:
+        # 获取所有任务
+        all_tasks = await task_service.get_all_tasks()
+
+        # 获取当前正在运行的任务所属的项目目录（in_progress 和 in_reviewing 都算占用）
+        running_projects = set()
+        for t in all_tasks:
+            if t.status in ('in_progress', 'in_reviewing'):
+                running_projects.add(t.project_directory)
+
+        # 筛选待启动的任务（pending 和 in_reviewing）
+        pending_tasks = [t for t in all_tasks if t.status == 'pending']
+        reviewing_tasks = [t for t in all_tasks if t.status == 'in_reviewing']
+        tasks_to_start = pending_tasks + reviewing_tasks
+
+        if not tasks_to_start:
+            return {
+                "success": True,
+                "message": "No pending tasks to start",
+                "started_count": 0,
+                "queued_count": 0,
+                "skipped_count": 0,
+                "failed_ids": []
+            }
+
+        started_count = 0
+        queued_count = 0
+        skipped_count = 0
+        failed_ids = []
+
+        # 记录本次批量启动中已启动的项目
+        started_projects = set()
+
+        for task in tasks_to_start:
+            # 检查该项目是否已有任务在运行（包括之前运行的和本次启动的）
+            if task.project_directory in running_projects or task.project_directory in started_projects:
+                skipped_count += 1
+                continue
+
+            # 检查是否有可用槽位
+            available_slots = codex_service.get_available_slots()
+            if available_slots <= 0:
+                # 没有槽位了，剩余任务保持 pending 状态等待队列执行
+                queued_count += 1
+                continue
+
+            try:
+                is_in_reviewing = task.status == 'in_reviewing'
+
+                if is_in_reviewing:
+                    # 审查模式
+                    review_cli_type = await settings_service.get_review_cli_type()
+                    api_base_url = await settings_service.get_setting('api_base_url') or 'http://127.0.0.1:8086'
+
+                    success = await codex_service.start_session(
+                        task_id=task.id,
+                        project_dir=task.project_directory,
+                        doc_path=task.markdown_document_path,
+                        api_base_url=api_base_url,
+                        cli_type=review_cli_type,
+                        template_name="review"
+                    )
+                else:
+                    # 正常模式
+                    success = await codex_service.start_session(
+                        task_id=task.id,
+                        project_dir=task.project_directory,
+                        doc_path=task.markdown_document_path,
+                        cli_type=task.cli_type
+                    )
+
+                if success:
+                    if not is_in_reviewing:
+                        await task_service.start_task_and_return(task.id)
+                    else:
+                        await task_service.add_task_log(task.id, 'INFO', 'Review session started')
+                    started_count += 1
+                    # 记录该项目已启动任务
+                    started_projects.add(task.project_directory)
+                else:
+                    failed_ids.append(task.id)
+                    await task_service.add_task_log(task.id, 'ERROR', 'Failed to start session')
+            except Exception as e:
+                failed_ids.append(task.id)
+                await task_service.add_task_log(task.id, 'ERROR', f'Exception starting task: {str(e)}')
+
+        # 广播批量启动事件
+        await manager.broadcast({
+            "type": "tasks_batch_started",
+            "data": {
+                "started_count": started_count,
+                "queued_count": queued_count,
+                "skipped_count": skipped_count,
+                "active_sessions": codex_service.get_active_count()
+            }
+        })
+
+        message_parts = [f"Started {started_count} tasks"]
+        if queued_count > 0:
+            message_parts.append(f"{queued_count} queued")
+        if skipped_count > 0:
+            message_parts.append(f"{skipped_count} skipped (project conflict)")
+        if failed_ids:
+            message_parts.append(f"{len(failed_ids)} failed")
+
+        return {
+            "success": len(failed_ids) == 0,
+            "message": ", ".join(message_parts),
+            "started_count": started_count,
+            "queued_count": queued_count,
+            "skipped_count": skipped_count,
+            "failed_ids": failed_ids
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== Codex会话控制API ====================
 
 @app.post("/api/tasks/{task_id}/start")
@@ -670,6 +859,54 @@ async def _should_enable_review(task_id: str) -> bool:
     return await settings_service.get_review_enabled()
 
 
+async def _try_start_next_task(completed_project_dir: str = None):
+    """
+    尝试启动下一个待处理任务
+    优先启动与刚完成任务同项目的任务，否则启动任意可用任务
+    """
+    if codex_service.get_available_slots() <= 0:
+        return
+
+    all_tasks = await task_service.get_all_tasks()
+
+    # 获取当前正在运行的项目
+    running_projects = {t.project_directory for t in all_tasks if t.status in ('in_progress', 'in_reviewing')}
+
+    # 筛选待启动任务
+    pending_tasks = [t for t in all_tasks if t.status == 'pending']
+
+    # 优先启动同项目的任务
+    next_task = None
+    if completed_project_dir:
+        for t in pending_tasks:
+            if t.project_directory == completed_project_dir:
+                next_task = t
+                break
+
+    # 如果没有同项目任务，找其他可启动的任务
+    if not next_task:
+        for t in pending_tasks:
+            if t.project_directory not in running_projects:
+                next_task = t
+                break
+
+    if not next_task:
+        return
+
+    try:
+        success = await codex_service.start_session(
+            task_id=next_task.id,
+            project_dir=next_task.project_directory,
+            doc_path=next_task.markdown_document_path,
+            cli_type=next_task.cli_type
+        )
+        if success:
+            await task_service.start_task_and_return(next_task.id)
+            await task_service.add_task_log(next_task.id, 'INFO', '🚀 自动启动（前一任务已完成）')
+    except Exception as e:
+        await task_service.add_task_log(next_task.id, 'ERROR', f'自动启动失败: {str(e)}')
+
+
 async def _complete_task_with_cleanup(task_id: str, log_message: str):
     """
     完成任务并清理会话资源
@@ -678,6 +915,10 @@ async def _complete_task_with_cleanup(task_id: str, log_message: str):
         task_id: 任务ID
         log_message: 完成日志消息
     """
+    # 获取当前任务的项目目录（用于后续启动同项目的下一个任务）
+    current_task = await task_service.get_task_basic(task_id)
+    current_project_dir = current_task.project_directory if current_task else None
+
     await task_service.complete_task(task_id)
     await codex_service.stop_session(task_id)
     # 清除看门狗心跳记录
@@ -688,6 +929,9 @@ async def _complete_task_with_cleanup(task_id: str, log_message: str):
         "type": "task_completed",
         "data": {"task_id": task_id}
     })
+
+    # 自动启动下一个待处理任务
+    await _try_start_next_task(current_project_dir)
 
 
 async def _trigger_review_task(task_id: str, task):
@@ -1090,7 +1334,7 @@ async def websocket_monitor(websocket: WebSocket):
                             # 新增：活跃会话数据
                             "sessions": {
                                 "sessions": sessions,
-                                "count": len(sessions),
+                                "count": codex_service.get_active_count(),
                                 "max_concurrent": codex_service.session_manager.max_concurrent
                             }
                         }
@@ -1381,6 +1625,12 @@ async def update_setting(key: str, request: dict):
         value = request.get("value")
         if value is None:
             raise HTTPException(status_code=400, detail="value is required")
+
+        # 布尔值转换为字符串 "true"/"false"
+        if isinstance(value, bool):
+            value = "true" if value else "false"
+        else:
+            value = str(value)
 
         # 特殊处理终端类型设置
         if key == "terminal":

@@ -401,6 +401,65 @@ class TaskServiceDB:
         await self.initialize()
         return await self.task_dao.update_task(task_id, updates)
 
+    async def batch_delete_tasks(self, task_ids: List[str]) -> tuple[int, List[str]]:
+        """
+        批量删除任务
+
+        Args:
+            task_ids: 要删除的任务ID列表
+
+        Returns:
+            (成功删除数量, 失败的任务ID列表)
+        """
+        await self.initialize()
+        success_count = 0
+        failed_ids = []
+
+        for task_id in task_ids:
+            try:
+                result = await self.task_dao.delete_task(task_id)
+                if result:
+                    success_count += 1
+                else:
+                    failed_ids.append(task_id)
+            except Exception:
+                failed_ids.append(task_id)
+
+        return success_count, failed_ids
+
+    async def batch_update_status(self, task_ids: List[str], status: str) -> tuple[int, List[str]]:
+        """
+        批量修改任务状态
+
+        Args:
+            task_ids: 要修改的任务ID列表
+            status: 目标状态
+
+        Returns:
+            (成功修改数量, 失败的任务ID列表)
+        """
+        await self.initialize()
+        success_count = 0
+        failed_ids = []
+
+        # 如果是完成状态，需要设置 completed_at
+        updates = {'status': status}
+        if status == 'completed':
+            updates['completed_at'] = datetime.now().isoformat()
+
+        for task_id in task_ids:
+            try:
+                result = await self.task_dao.update_task(task_id, updates)
+                if result:
+                    success_count += 1
+                    await self.task_dao.add_log(task_id, 'INFO', f'Status changed to {status} (batch operation)')
+                else:
+                    failed_ids.append(task_id)
+            except Exception:
+                failed_ids.append(task_id)
+
+        return success_count, failed_ids
+
     def _convert_to_model(self, task_dict: dict) -> TaskModel:
         """将数据库字典转换为Pydantic模型"""
         logs = None

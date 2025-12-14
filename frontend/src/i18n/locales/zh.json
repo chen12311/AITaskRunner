@@ -99,6 +99,27 @@
       "deleteTitle": "确认删除",
       "deleteDescription": "此操作无法撤销，确定要删除该任务吗？",
       "confirmDelete": "确认删除"
+    },
+    "batch": {
+      "selected": "已选中 {{count}} 项",
+      "delete": "批量删除",
+      "updateStatus": "批量修改状态",
+      "deleteTitle": "确认批量删除",
+      "deleteConfirm": "确定要删除选中的 {{count}} 个任务吗？此操作无法撤销。",
+      "updateStatusTitle": "确认批量修改状态",
+      "updateStatusConfirm": "确定要将选中的 {{count}} 个任务状态修改为「{{status}}」吗？",
+      "deleteSuccess": "成功删除 {{count}} 个任务",
+      "deleteFailed": "批量删除失败",
+      "updateStatusSuccess": "成功修改 {{count}} 个任务状态",
+      "updateStatusFailed": "批量修改状态失败",
+      "startAll": "启动所有",
+      "startAllTitle": "确认启动所有待处理任务",
+      "startAllConfirm": "确定要启动所有待处理和待审查的任务吗？系统将按并发限制依次执行。",
+      "startAllSuccess": "已启动 {{started}} 个任务{{queued}}{{skipped}}",
+      "startAllQueued": "，{{count}} 个排队中",
+      "startAllSkipped": "，{{count}} 个跳过（项目冲突）",
+      "startAllFailed": "启动任务失败",
+      "startAllNoPending": "没有待处理的任务"
     }
   },
   "logs": {

@@ -66,3 +66,20 @@ export interface SessionsActiveResponse {
 }
 
 export type SessionStatusFilter = 'all' | 'running' | 'paused' | 'stopped'
+
+// 批量操作相关类型
+export interface BatchDeleteData {
+  task_ids: string[]
+}
+
+export interface BatchUpdateStatusData {
+  task_ids: string[]
+  status: TaskStatus
+}
+
+export interface BatchActionResponse {
+  success: boolean
+  message: string
+  affected_count: number
+  failed_ids: string[]
+}

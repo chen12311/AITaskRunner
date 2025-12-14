@@ -99,6 +99,25 @@ class TaskActionResponse(BaseModel):
     task_id: Optional[str] = None
 
 
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求"""
+    task_ids: List[str] = Field(..., description="要删除的任务ID列表")
+
+
+class BatchUpdateStatusRequest(BaseModel):
+    """批量修改状态请求"""
+    task_ids: List[str] = Field(..., description="要修改的任务ID列表")
+    status: str = Field(..., description="目标状态: pending, in_progress, completed, failed")
+
+
+class BatchActionResponse(BaseModel):
+    """批量操作响应"""
+    success: bool
+    message: str
+    affected_count: int = Field(0, description="成功操作的数量")
+    failed_ids: List[str] = Field(default_factory=list, description="操作失败的任务ID列表")
+
+
 class TaskNotificationPayload(BaseModel):
     """任务通知负载 - 发送给回调URL的数据"""
     task_id: str

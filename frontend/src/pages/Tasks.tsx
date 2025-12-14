@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo, useCallback, Fragment, lazy, Suspense, memo } from 'react'
-import { Plus, RefreshCw, ChevronDown, ChevronRight, Play, Edit, Trash2, Search } from 'lucide-react'
+import { useEffect, useState, useMemo, useCallback, Fragment, lazy, Suspense } from 'react'
+import { Plus, RefreshCw, ChevronDown, ChevronRight, Play, Edit, Trash2, Search, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -38,6 +38,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 import { useTaskStore, useProjectStore, useSessionStore } from '@/stores'
 import type { Task, TaskStatus } from '@/types'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { logApi, initApi } from '@/api'
 import { useWebSocket } from '@/hooks'
 
@@ -54,7 +61,11 @@ const statusVariants: Record<TaskStatus, 'default' | 'secondary' | 'destructive'
 
 export function Component() {
   const { t, i18n } = useTranslation()
-  const { tasks, loading, fetchTasks, setTasks, deleteTask, startTask } = useTaskStore()
+  const {
+    tasks, loading, fetchTasks, setTasks, deleteTask, startTask,
+    selectedIds, toggleSelect, selectAll, clearSelection,
+    batchDelete, batchUpdateStatus, startAllPendingTasks
+  } = useTaskStore()
   const { projects, setProjects } = useProjectStore()
   const { sessions, setSessions } = useSessionStore()
 
@@ -73,6 +84,12 @@ export function Component() {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  // 批量操作状态
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false)
+  const [batchStatusDialogOpen, setBatchStatusDialogOpen] = useState(false)
+  const [targetStatus, setTargetStatus] = useState<TaskStatus | null>(null)
+  const [startAllDialogOpen, setStartAllDialogOpen] = useState(false)
+  const [startingAll, setStartingAll] = useState(false)
   const [maxConcurrent, setMaxConcurrent] = useState<number>(3)
   const currentLocale = useMemo(() => i18n.language.startsWith('zh') ? zhCN : enUS, [i18n.language])
 
@@ -198,6 +215,73 @@ export function Component() {
     setDialogOpen(true)
   }, [])
 
+  // 批量操作处理
+  const handleBatchDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds)
+    try {
+      const result = await batchDelete(ids)
+      toast.success(t('tasks.batch.deleteSuccess', { count: result.affectedCount }))
+    } catch {
+      toast.error(t('tasks.batch.deleteFailed'))
+    }
+    setBatchDeleteDialogOpen(false)
+  }, [selectedIds, batchDelete, t])
+
+  const handleBatchUpdateStatus = useCallback(async () => {
+    if (!targetStatus) return
+    const ids = Array.from(selectedIds)
+    try {
+      const result = await batchUpdateStatus(ids, targetStatus)
+      toast.success(t('tasks.batch.updateStatusSuccess', { count: result.affectedCount }))
+    } catch {
+      toast.error(t('tasks.batch.updateStatusFailed'))
+    }
+    setBatchStatusDialogOpen(false)
+    setTargetStatus(null)
+  }, [selectedIds, targetStatus, batchUpdateStatus, t])
+
+  const openBatchStatusDialog = useCallback((status: TaskStatus) => {
+    setTargetStatus(status)
+    setBatchStatusDialogOpen(true)
+  }, [])
+
+  // 启动所有待处理任务
+  const handleStartAll = useCallback(async () => {
+    setStartingAll(true)
+    try {
+      const result = await startAllPendingTasks()
+      if (result.startedCount === 0 && result.queuedCount === 0 && result.skippedCount === 0) {
+        toast.info(t('tasks.batch.startAllNoPending'))
+      } else {
+        const queuedText = result.queuedCount > 0
+          ? t('tasks.batch.startAllQueued', { count: result.queuedCount })
+          : ''
+        const skippedText = result.skippedCount > 0
+          ? t('tasks.batch.startAllSkipped', { count: result.skippedCount })
+          : ''
+        toast.success(t('tasks.batch.startAllSuccess', { started: result.startedCount, queued: queuedText, skipped: skippedText }))
+      }
+    } catch {
+      toast.error(t('tasks.batch.startAllFailed'))
+    } finally {
+      setStartingAll(false)
+      setStartAllDialogOpen(false)
+    }
+  }, [startAllPendingTasks, t])
+
+  // 全选/取消全选当前页
+  const isAllSelected = useMemo(() => {
+    return paginatedTasks.length > 0 && paginatedTasks.every((task) => selectedIds.has(task.id))
+  }, [paginatedTasks, selectedIds])
+
+  const handleSelectAll = useCallback(() => {
+    if (isAllSelected) {
+      clearSelection()
+    } else {
+      selectAll(paginatedTasks.map((task) => task.id))
+    }
+  }, [isAllSelected, paginatedTasks, selectAll, clearSelection])
+
   const getCliLabel = (cliType?: string | null) => {
     if (!cliType) return '-'
     const translationKey = `settings.clis.${cliType}` as const
@@ -214,10 +298,20 @@ export function Component() {
             {t('tasks.runningCount', { current: activeSessionCount, max: maxConcurrent })}
           </Badge>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('tasks.createTask')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setStartAllDialogOpen(true)}
+            disabled={startingAll}
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {t('tasks.batch.startAll')}
+          </Button>
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('tasks.createTask')}
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -249,6 +343,49 @@ export function Component() {
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
+          {/* 批量操作工具栏 */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 pt-3 border-t">
+              <span className="text-sm text-muted-foreground">
+                {t('tasks.batch.selected', { count: selectedIds.size })}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBatchDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                {t('tasks.batch.delete')}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    {t('tasks.batch.updateStatus')}
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => openBatchStatusDialog('pending')}>
+                    {t('tasks.status.pending')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openBatchStatusDialog('completed')}>
+                    {t('tasks.status.completed')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openBatchStatusDialog('failed')}>
+                    {t('tasks.status.failed')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+              >
+                <X className="h-4 w-4 mr-1" />
+                {t('common.cancel')}
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -262,6 +399,13 @@ export function Component() {
             <Table className="table-fixed w-full">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label={t('common.all')}
+                    />
+                  </TableHead>
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="w-[150px]">{t('tasks.table.taskId')}</TableHead>
                   <TableHead className="w-[180px]">{t('tasks.table.projectName')}</TableHead>
@@ -275,7 +419,7 @@ export function Component() {
               <TableBody>
                 {paginatedTasks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       {t('tasks.noData')}
                     </TableCell>
                   </TableRow>
@@ -283,6 +427,13 @@ export function Component() {
                   paginatedTasks.map((task) => (
                     <Fragment key={task.id}>
                       <TableRow key={task.id} className="cursor-pointer" onClick={() => toggleRow(task.id)}>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(task.id)}
+                            onCheckedChange={() => toggleSelect(task.id)}
+                            aria-label={`Select task ${task.id}`}
+                          />
+                        </TableCell>
                         <TableCell>
                           {expandedRows.has(task.id) ? (
                             <ChevronDown className="h-4 w-4" />
@@ -342,7 +493,7 @@ export function Component() {
                       </TableRow>
                       {expandedRows.has(task.id) && (
                         <TableRow>
-                          <TableCell colSpan={8} className="bg-muted/50 p-4">
+                          <TableCell colSpan={9} className="bg-muted/50 p-4">
                             <div className="space-y-4">
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
@@ -443,6 +594,59 @@ export function Component() {
           projects={projects}
         />
       </Suspense>
+
+      {/* 批量删除确认对话框 */}
+      <AlertDialog open={batchDeleteDialogOpen} onOpenChange={setBatchDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('tasks.batch.deleteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('tasks.batch.deleteConfirm', { count: selectedIds.size })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBatchDelete}>{t('tasks.dialog.confirmDelete')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 批量修改状态确认对话框 */}
+      <AlertDialog open={batchStatusDialogOpen} onOpenChange={setBatchStatusDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('tasks.batch.updateStatusTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('tasks.batch.updateStatusConfirm', {
+                count: selectedIds.size,
+                status: targetStatus ? t(`tasks.status.${targetStatus}`) : ''
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBatchUpdateStatus}>{t('common.confirm')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 启动所有任务确认对话框 */}
+      <AlertDialog open={startAllDialogOpen} onOpenChange={setStartAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('tasks.batch.startAllTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('tasks.batch.startAllConfirm')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={startingAll}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStartAll} disabled={startingAll}>
+              {startingAll ? t('common.loading') : t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

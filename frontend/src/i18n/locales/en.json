@@ -99,6 +99,27 @@
       "deleteTitle": "Confirm Delete",
       "deleteDescription": "This action cannot be undone. Are you sure you want to delete this task?",
       "confirmDelete": "Confirm Delete"
+    },
+    "batch": {
+      "selected": "{{count}} selected",
+      "delete": "Batch Delete",
+      "updateStatus": "Batch Update Status",
+      "deleteTitle": "Confirm Batch Delete",
+      "deleteConfirm": "Are you sure you want to delete {{count}} selected tasks? This action cannot be undone.",
+      "updateStatusTitle": "Confirm Batch Status Update",
+      "updateStatusConfirm": "Are you sure you want to change the status of {{count}} selected tasks to \"{{status}}\"?",
+      "deleteSuccess": "Successfully deleted {{count}} tasks",
+      "deleteFailed": "Batch delete failed",
+      "updateStatusSuccess": "Successfully updated {{count}} tasks",
+      "updateStatusFailed": "Batch status update failed",
+      "startAll": "Start All",
+      "startAllTitle": "Confirm Start All Pending Tasks",
+      "startAllConfirm": "Are you sure you want to start all pending and reviewing tasks? Tasks will be executed according to concurrency limits.",
+      "startAllSuccess": "Started {{started}} tasks{{queued}}{{skipped}}",
+      "startAllQueued": ", {{count}} queued",
+      "startAllSkipped": ", {{count}} skipped (project conflict)",
+      "startAllFailed": "Failed to start tasks",
+      "startAllNoPending": "No pending tasks"
     }
   },
   "logs": {
