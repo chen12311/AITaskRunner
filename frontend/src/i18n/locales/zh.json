@@ -261,6 +261,14 @@
     "launchSuccess": "终端已启动",
     "launchTerminalSuccess": "终端已打开",
     "launchFailed": "启动失败",
+    "launchErrors": {
+      "projectNotFound": "项目未找到",
+      "directoryNotConfigured": "项目目录未配置",
+      "directoryNotExist": "项目目录不存在: {{path}}",
+      "noTerminalAdapter": "没有可用的终端适配器",
+      "createWindowFailed": "创建终端窗口失败",
+      "launchTerminalFailed": "启动终端失败: {{error}}"
+    },
     "launchMenu": {
       "quick": "快速启动",
       "selectCli": "选择 CLI",
