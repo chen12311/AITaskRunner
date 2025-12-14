@@ -597,36 +597,18 @@ async def _restart_session_impl(task_id: str, task, progress: dict):
     try:
         await task_service.add_task_log(task_id, "INFO", "重启会话中...")
 
-        # 检查会话是否已在运行
+        # 先停止当前会话（如果存在）
         session_status = await codex_service.get_status(task_id)
-
         if session_status and session_status.is_running:
-            # 会话已运行，直接发送继续执行指令
-            await task_service.add_task_log(task_id, "INFO", "会话已运行，发送继续执行指令...")
+            await task_service.add_task_log(task_id, "INFO", "关闭当前会话...")
+            await codex_service.stop_session(task_id)
 
-            # 获取语言设置
-            locale = await settings_service.get_language()
-
-            # 渲染继续执行的模板消息
-            continue_message = await template_service.render_template_async(
-                "continue_task",
-                locale=locale,
-                project_dir=task.project_directory,
-                doc_path=task.markdown_document_path,
-                task_id=task_id,
-                api_base_url=await settings_service.get_setting('api_base_url') or 'http://127.0.0.1:8086',
-                remaining_tasks=progress['remaining']
-            )
-
-            await codex_service.send_message(continue_message, task_id)
-            success = True  # send_message 没有返回值，假定发送成功
-        else:
-            # 会话未运行，启动新会话
-            success = await codex_service.start_session(
-                task_id=task_id,
-                project_dir=task.project_directory,
-                doc_path=task.markdown_document_path
-            )
+        # 启动新会话（使用 initial_task 模板）
+        success = await codex_service.start_session(
+            task_id=task_id,
+            project_dir=task.project_directory,
+            doc_path=task.markdown_document_path
+        )
 
         if success:
             await task_service.add_task_log(task_id, "INFO", "✅ 会话重启成功，继续执行剩余任务")
