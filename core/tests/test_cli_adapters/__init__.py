@@ -1,0 +1,1 @@
+# CLI adapters tests package

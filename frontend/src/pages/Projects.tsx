@@ -64,6 +64,34 @@ export function Component() {
     setDialogOpen(true)
   }, [])
 
+  // 解析启动错误消息并返回国际化文本
+  const getLaunchErrorMessage = useCallback((detail: string | undefined): string => {
+    if (!detail) return t('projects.launchFailed')
+
+    if (detail === 'Project not found') {
+      return t('projects.launchErrors.projectNotFound')
+    }
+    if (detail === 'Project directory not configured') {
+      return t('projects.launchErrors.directoryNotConfigured')
+    }
+    if (detail.startsWith('Project directory does not exist:')) {
+      const path = detail.replace('Project directory does not exist:', '').trim()
+      return t('projects.launchErrors.directoryNotExist', { path })
+    }
+    if (detail === 'No terminal adapter available') {
+      return t('projects.launchErrors.noTerminalAdapter')
+    }
+    if (detail === 'Failed to create terminal window') {
+      return t('projects.launchErrors.createWindowFailed')
+    }
+    if (detail.startsWith('Failed to launch terminal:')) {
+      const error = detail.replace('Failed to launch terminal:', '').trim()
+      return t('projects.launchErrors.launchTerminalFailed', { error })
+    }
+
+    return t('projects.launchFailed')
+  }, [t])
+
   // 启动项目 - 使用默认设置（快速启动，Claude Code）
   const handleQuickLaunch = useCallback(async (projectId: string) => {
     try {
@@ -72,9 +100,10 @@ export function Component() {
         toast.success(t('projects.launchSuccess'))
       }
     } catch (error) {
-      toast.error(t('projects.launchFailed'))
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast.error(getLaunchErrorMessage(detail))
     }
-  }, [t, dangerousModeEnabled])
+  }, [t, dangerousModeEnabled, getLaunchErrorMessage])
 
   // 使用指定 CLI 启动
   const handleLaunchWithCli = useCallback(async (projectId: string, cli: string) => {
@@ -84,9 +113,10 @@ export function Component() {
         toast.success(t('projects.launchSuccess'))
       }
     } catch (error) {
-      toast.error(t('projects.launchFailed'))
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast.error(getLaunchErrorMessage(detail))
     }
-  }, [t, dangerousModeEnabled])
+  }, [t, dangerousModeEnabled, getLaunchErrorMessage])
 
   const handleCreate = useCallback(() => {
     setEditingProject(null)

@@ -264,6 +264,14 @@
     "launchSuccess": "Terminal launched",
     "launchTerminalSuccess": "Terminal opened",
     "launchFailed": "Launch failed",
+    "launchErrors": {
+      "projectNotFound": "Project not found",
+      "directoryNotConfigured": "Project directory not configured",
+      "directoryNotExist": "Project directory does not exist: {{path}}",
+      "noTerminalAdapter": "No terminal adapter available",
+      "createWindowFailed": "Failed to create terminal window",
+      "launchTerminalFailed": "Failed to launch terminal: {{error}}"
+    },
     "launchMenu": {
       "quick": "Quick Launch",
       "selectCli": "Select CLI",
