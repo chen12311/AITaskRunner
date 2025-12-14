@@ -1,0 +1,83 @@
+# Pre-commit hooks 配置
+# 安装: pip install pre-commit && pre-commit install
+# 手动运行: pre-commit run --all-files
+
+repos:
+  # 通用 hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Python 代码格式化
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(backend|core)/
+      - id: ruff-format
+        files: ^(backend|core)/
+
+  # Python 类型检查
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        files: ^(backend|core)/
+        args: [--ignore-missing-imports]
+        additional_dependencies: []
+
+  # 前端代码检查
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: prettier
+        name: Prettier
+        entry: bash -c 'cd frontend && npx prettier --check "src/**/*.{ts,tsx,css}"'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx|css)$
+        pass_filenames: false
+
+  # 运行相关测试
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest (changed files)
+        entry: bash -c 'pytest --co -q 2>/dev/null && pytest -x -q --tb=short'
+        language: system
+        files: ^(backend|core)/.*\.py$
+        pass_filenames: false
+        stages: [push]
+
+      - id: vitest-check
+        name: vitest (changed files)
+        entry: bash -c 'cd frontend && npm run test:run -- --passWithNoTests'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
+        stages: [push]
+
+# CI 配置
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [pytest-check, vitest-check]
+  submodules: false
