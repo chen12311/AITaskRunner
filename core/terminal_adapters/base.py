@@ -99,7 +99,7 @@ class TerminalAdapter(ABC):
         """清除会话信息"""
         self.current_session = None
 
-    async def is_cli_active(self) -> bool | None:
+    async def is_cli_active(self) -> Optional[bool]:
         """
         检测 CLI 是否在活跃执行
 
