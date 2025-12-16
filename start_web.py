@@ -18,21 +18,48 @@ _processes = []
 
 
 def kill_port(port):
-    """杀死占用指定端口的进程"""
+    """杀死占用指定端口的进程（跨平台）"""
     try:
-        result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
-            capture_output=True,
-            text=True
-        )
-        if result.stdout.strip():
-            pids = result.stdout.strip().split('\n')
-            for pid in pids:
-                try:
-                    os.kill(int(pid), signal.SIGKILL)
-                    print(f"   🔪 已杀死占用端口 {port} 的进程 (PID: {pid})")
-                except (ProcessLookupError, ValueError):
-                    pass
+        if sys.platform == 'win32':
+            # Windows: 使用 netstat + taskkill
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace'
+            )
+            if result.returncode == 0:
+                for line in result.stdout.split('\n'):
+                    # 查找包含指定端口的行 (格式: TCP 0.0.0.0:8086 ... LISTENING 1234)
+                    if f":{port}" in line and "LISTENING" in line:
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            pid = parts[-1]
+                            try:
+                                subprocess.run(
+                                    ["taskkill", "/F", "/PID", pid],
+                                    capture_output=True,
+                                    check=False
+                                )
+                                print(f"   🔪 已杀死占用端口 {port} 的进程 (PID: {pid})")
+                            except Exception:
+                                pass
+        else:
+            # macOS/Linux: 使用 lsof + kill
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True,
+                text=True
+            )
+            if result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    try:
+                        os.kill(int(pid), signal.SIGKILL)
+                        print(f"   🔪 已杀死占用端口 {port} 的进程 (PID: {pid})")
+                    except (ProcessLookupError, ValueError):
+                        pass
     except Exception:
         pass
 
@@ -54,7 +81,7 @@ def cleanup_processes(signum=None, frame=None):
 
     # 确保端口被释放
     kill_port(8086)
-    kill_port(3000)
+    kill_port(3500)
     print("\n👋 所有服务已停止")
     sys.exit(0)
 
@@ -63,9 +90,14 @@ def main():
     """主函数"""
     global _processes
 
-    # 注册信号处理器
+    # 注册信号处理器（跨平台）
     signal.signal(signal.SIGINT, cleanup_processes)
-    signal.signal(signal.SIGTERM, cleanup_processes)
+    if sys.platform == 'win32':
+        # Windows: 使用 SIGBREAK 替代 SIGTERM
+        signal.signal(signal.SIGBREAK, cleanup_processes)
+    else:
+        # macOS/Linux: 使用 SIGTERM
+        signal.signal(signal.SIGTERM, cleanup_processes)
 
     print("=" * 60)
     print("🚀 Codex Automation Web Dashboard 启动器")
@@ -77,7 +109,7 @@ def main():
     # 启动前清理可能残留的进程
     print("\n🧹 检查并清理残留进程...")
     kill_port(8086)
-    kill_port(3000)
+    kill_port(3500)
 
     try:
         # 1. 启动后端服务
@@ -127,12 +159,12 @@ def main():
         )
         _processes.append(("Frontend", frontend_process))
         print(f"   ✅ 前端服务已启动 (PID: {frontend_process.pid})")
-        print(f"   🌐 前端地址: http://localhost:3000")
+        print(f"   🌐 前端地址: http://localhost:3500")
 
         print("\n" + "=" * 60)
         print("✨ 所有服务已启动!")
         print("   - 后端API: http://127.0.0.1:8086")
-        print("   - 前端界面: http://localhost:3000")
+        print("   - 前端界面: http://localhost:3500")
         print("   - API文档: http://127.0.0.1:8086/docs")
         print("=" * 60)
         print("\n按 Ctrl+C 停止所有服务...\n")

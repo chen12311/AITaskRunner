@@ -86,7 +86,7 @@ cd frontend
 npm run dev
 ```
 
-然后在浏览器中打开 http://localhost:3000
+然后在浏览器中打开 http://localhost:3500
 
 ### 5 分钟上手教程
 
@@ -94,7 +94,7 @@ npm run dev
 
 **第一步：配置设置**
 
-1. 打开 http://localhost:3000，进入 **设置** 页面
+1. 打开 http://localhost:3500，进入 **设置** 页面
 2. 选择你的 **CLI 类型**（如 Claude Code）
 3. 选择你的 **终端**（macOS 上的 iTerm2，Linux 上的 Kitty）
 4. 设置 **最大并发会话数**（默认：3）

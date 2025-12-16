@@ -33,7 +33,7 @@ npm run dev
 
 ### Step 3: Access the System
 
-Open your browser and navigate to: `http://localhost:3000`
+Open your browser and navigate to: `http://localhost:3500`
 
 ## Create Your First Task
 

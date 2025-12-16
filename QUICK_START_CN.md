@@ -33,7 +33,7 @@ npm run dev
 
 ### 步骤 3: 访问系统
 
-打开浏览器访问: `http://localhost:3000`
+打开浏览器访问: `http://localhost:3500`
 
 ## 创建第一个任务
 

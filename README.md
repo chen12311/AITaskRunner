@@ -86,7 +86,7 @@ cd frontend
 npm run dev
 ```
 
-Then open http://localhost:3000 in your browser.
+Then open http://localhost:3500 in your browser.
 
 ### 5-Minute Tutorial
 
@@ -94,7 +94,7 @@ Follow these steps to run your first automated task:
 
 **Step 1: Configure Settings**
 
-1. Open http://localhost:3000 and go to **Settings** page
+1. Open http://localhost:3500 and go to **Settings** page
 2. Select your preferred **CLI Type** (e.g., Claude Code)
 3. Select your **Terminal** (e.g., iTerm2 on macOS, Kitty on Linux)
 4. Set **Max Concurrent Sessions** (default: 3)
