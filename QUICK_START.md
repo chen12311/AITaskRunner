@@ -1,249 +1,213 @@
-# 快速开始指南 - 简化版任务系统
+# Quick Start Guide
 
-## 🚀 5分钟快速上手
+[English](QUICK_START_EN.md) | [中文](QUICK_START.md)
 
-### 步骤 1: 迁移数据库（如果有旧数据）
+## 5-Minute Quick Start
 
+### Step 1: Install Dependencies
+
+**Backend dependencies:**
 ```bash
-cd /Users/mac/Documents/python/zidonghua/codex_automation
-python3 backend/database/migrate_to_v2.py
+pip install -r backend/requirements.txt
 ```
 
-如果是全新安装，跳过此步骤。
-
-### 步骤 2: 安装前端依赖
-
+**Frontend dependencies:**
 ```bash
 cd frontend
 npm install
+cd ..
 ```
 
-### 步骤 3: 启动服务
+### Step 2: Start Services
 
-**启动后端:**
+**Start backend:**
 ```bash
-cd /Users/mac/Documents/python/zidonghua/codex_automation
-python3 start_web.py
+python start_web.py
 ```
 
-**启动前端（新终端）:**
+**Start frontend (new terminal):**
 ```bash
-cd /Users/mac/Documents/python/zidonghua/codex_automation/frontend
+cd frontend
 npm run dev
 ```
 
-### 步骤 4: 访问系统
+### Step 3: Access the System
 
-打开浏览器访问: `http://localhost:3000`
+Open your browser and navigate to: `http://localhost:3000`
 
-## 📝 创建第一个任务
+## Create Your First Task
 
-### 方法 1: 使用 Web 界面
+### Method 1: Using Web Interface
 
-1. 点击"创建任务"按钮
-2. 填写项目目录，例如：`/Users/username/my_project`
-3. 点击"使用模板"或手动编写 Markdown 文档：
+1. Go to **Settings** page, configure:
+   - CLI Type (Claude Code / Codex / Gemini)
+   - Terminal Type (iTerm2 / Kitty / Windows Terminal)
+   - Max Concurrent Sessions
+
+2. Go to **Projects** page, create a new project:
+   - Enter project name
+   - Select project directory path
+   - Use **Launch Terminal** to quickly open the project directory
+
+3. Go to **Tasks** page, create a task:
+   - Enter task title
+   - Select associated project
+   - Specify Markdown document path
+   - Click **Save** then click **Start**
+
+### Method 2: Using API
+
+```python
+import requests
+
+# Create task
+response = requests.post('http://localhost:8086/api/tasks', json={
+    "title": "My First Task",
+    "project_directory": "/path/to/my_project",
+    "markdown_document_path": "/path/to/my_project/tasks/task.md"
+})
+task = response.json()
+
+# Start task
+requests.post(f'http://localhost:8086/api/tasks/{task["id"]}/start')
+```
+
+## Markdown Document Format
+
+Task documents use Markdown format. The system automatically recognizes checkboxes and tracks progress:
 
 ```markdown
-# 我的第一个项目
+# Project Title
 
-## 项目概述
-这是一个测试项目
+## Project Overview
+Brief description of the project goals and background
 
-## 任务清单
-- [ ] 创建项目结构
-- [ ] 编写代码
-- [ ] 测试
+## Tech Stack
+- **Language**: Python
+- **Framework**: FastAPI
+- **Database**: PostgreSQL
+
+## Task List
+
+### 1. Project Initialization
+- [ ] Create project directory structure
+- [ ] Configure development environment
+- [ ] Initialize Git repository
+
+### 2. Core Feature Development
+- [ ] Implement user authentication
+- [ ] Develop API endpoints
+- [ ] Database design
+
+### 3. Testing and Deployment
+- [ ] Write unit tests
+- [ ] Configure CI/CD
+- [ ] Deploy to production
+
+## Implementation Notes
+Detailed implementation requirements and considerations...
 ```
 
-4. 点击"创建任务"
+**Note:** Use `- [ ]` checkbox format for automatic task completion detection.
 
-### 方法 2: 使用 API
+## Common Operations
 
-```python
-import requests
+### Batch Operations
 
-response = requests.post('http://localhost:8000/api/tasks', json={
-    "project_directory": "/Users/username/my_project",
-    "markdown_document": """
-# 我的第一个项目
+The Tasks page supports batch operations:
+- **Batch Start**: Start all pending tasks with one click
+- **Batch Delete**: Delete multiple selected tasks
+- **Batch Status Update**: Update status for multiple tasks
 
-## 项目概述
-这是一个测试项目
+### Project Terminal
 
-## 任务清单
-- [ ] 创建项目结构
-- [ ] 编写代码
-- [ ] 测试
-"""
-})
+On the Projects page you can:
+- **Launch Terminal**: Open a terminal in the project directory
+- **Launch CLI**: Directly start the AI CLI tool
+- **Dangerous Mode**: Start CLI with auto-confirm parameters
 
-print(response.json())
-```
+### View Logs
 
-### 方法 3: 使用 Python 脚本
+All logs during task execution can be viewed in:
+- Task detail page
+- Logs page for all task logs
 
-```python
-from backend.services.task_service_db import TaskServiceDB
-from backend.models.schemas import TaskCreateRequest
+## Core Features
 
-# 创建服务
-service = TaskServiceDB()
+### Session Watchdog
 
-# 创建任务
-task = service.create_task(TaskCreateRequest(
-    project_directory="/Users/username/my_project",
-    markdown_document="""
-# 我的第一个项目
+Automatically detects and recovers unexpectedly terminated sessions:
+- Auto-restart when terminal window is accidentally closed
+- Kitty terminal supports CLI idle detection
+- Can be enabled/disabled in Settings page
 
-## 项目概述
-这是一个测试项目
+### Cross-Review
 
-## 任务清单
-- [ ] 创建项目结构
-- [ ] 编写代码
-- [ ] 测试
-"""
-))
+Use a different AI CLI for cross-review:
+- Automatically switches to review CLI after task completion
+- Supports both task-level and global-level toggle
+- Configure review CLI type in Settings page
 
-print(f"任务创建成功: {task.id}")
-```
+### Context Management
 
-## 🎯 常用操作
+When CLI context reaches threshold:
+- Automatically restarts session to continue execution
+- Uses `resume_task` template to restore progress
+- No manual intervention required
 
-### 查看所有任务
+## Troubleshooting
 
-**Web 界面:** 访问任务列表页面
+### Q1: Backend fails to start?
 
-**API:**
-```python
-import requests
-tasks = requests.get('http://localhost:8000/api/tasks').json()
-```
-
-### 启动任务
-
-**Web 界面:** 点击任务行的"启动"按钮
-
-**API:**
-```python
-import requests
-requests.post(f'http://localhost:8000/api/tasks/{task_id}/start')
-```
-
-### 查看任务详情
-
-**Web 界面:** 点击任务行的"查看"按钮
-
-**API:**
-```python
-import requests
-task = requests.get(f'http://localhost:8000/api/tasks/{task_id}').json()
-print(task['markdown_document'])
-print(task['logs'])
-```
-
-## 📖 Markdown 文档建议格式
-
-```markdown
-# 项目标题
-
-## 项目概述
-简要描述项目的目标和背景
-
-## 技术栈
-- **编程语言**: Python
-- **框架**: FastAPI
-- **数据库**: PostgreSQL
-
-## 任务清单
-
-### 1. 项目初始化
-- [ ] 创建项目目录结构
-- [ ] 配置开发环境
-- [ ] 初始化Git仓库
-
-### 2. 核心功能开发
-- [ ] 实现用户认证
-- [ ] 开发API接口
-- [ ] 数据库设计
-
-### 3. 测试和部署
-- [ ] 编写单元测试
-- [ ] 配置CI/CD
-- [ ] 部署到生产环境
-
-## 实现说明
-详细的实现要求和注意事项...
-
-## 期望的项目结构
-\`\`\`
-project/
-├── src/
-│   └── main.py
-├── tests/
-│   └── test_main.py
-└── README.md
-\`\`\`
-
-## 注意事项
-- 遵循代码规范
-- 添加适当的注释
-- 编写测试用例
-```
-
-## 🔧 常见问题
-
-### Q1: 数据库迁移失败怎么办？
-
-**A:** 检查是否有旧数据库文件，如果没有，直接跳过迁移步骤。
-
-### Q2: 前端无法连接后端？
-
-**A:** 确保后端服务已启动，检查端口是否被占用：
+Check if port is occupied:
 ```bash
-lsof -i :8000
+lsof -i :8086
 ```
 
-### Q3: Markdown 渲染不正常？
-
-**A:** 确保已安装 `marked` 库：
+Ensure Python 3.10+ is installed:
 ```bash
-cd frontend
-npm install marked
+python --version
 ```
 
-### Q4: 如何查看任务日志？
+### Q2: Frontend cannot connect to backend?
 
-**A:**
-- Web 界面：展开任务行或点击"查看"按钮
-- API：获取任务详情时会包含 logs 字段
+Ensure backend service is running, check `API_BASE_URL` configuration in `.env` file.
 
-### Q5: 可以编辑已创建的任务吗？
+### Q3: CLI session won't start?
 
-**A:** 目前支持通过 API 更新任务：
-```python
-import requests
-requests.put(f'http://localhost:8000/api/tasks/{task_id}', json={
-    "markdown_document": "更新后的内容...",
-    "overall_progress": 0.5
-})
-```
+1. Confirm the selected CLI tool is installed (claude / codex / gemini)
+2. Confirm terminal emulator is installed (iTerm2 / Kitty)
+3. Check task logs for detailed error messages
 
-## 📚 更多资源
+### Q4: Task progress not updating?
 
-- [完整更新总结](COMPLETE_UPDATE_SUMMARY.md)
-- [简化结构说明](SIMPLIFIED_TASK_STRUCTURE.md)
-- [详细变更说明](TASK_STRUCTURE_CHANGES.md)
-- [前端更新说明](frontend/FRONTEND_UPDATES.md)
-- [示例任务](tasks/example_task.md)
+1. Ensure Markdown document uses correct checkbox format `- [ ]`
+2. Check if callback URL is correctly configured
+3. Run `curl http://127.0.0.1:8086/health` to test connection
 
-## 🎉 开始使用
+### Q5: How to view more logs?
 
-现在你已经准备好使用新的简化任务系统了！
+Backend logs are output directly to the terminal where `start_web.py` was started.
 
-如有任何问题，请查看文档或联系开发团队。
+## API Quick Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/init` | GET | Get initialization data |
+| `/api/tasks` | GET/POST | List/Create tasks |
+| `/api/tasks/{id}/start` | POST | Start task |
+| `/api/tasks/batch/start` | POST | Batch start |
+| `/api/sessions` | GET | Get session list |
+| `/api/projects` | GET/POST | List/Create projects |
+| `/api/projects/{id}/launch` | POST | Launch project terminal |
+| `/api/settings` | GET | Get settings |
+| `/ws/monitor` | WebSocket | Real-time status updates |
+
+## More Resources
+
+- [Full Documentation](README.md)
+- [API Documentation](http://localhost:8086/docs) - Access after starting backend
 
 ---
 
-**提示**: 建议先创建一个测试任务熟悉系统，然后再创建实际的项目任务。
+**Tip**: We recommend starting with a small test project to familiarize yourself with the system before using it for actual development tasks.
