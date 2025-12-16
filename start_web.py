@@ -8,6 +8,11 @@ import os
 import signal
 from pathlib import Path
 
+# 修复 Windows 控制台编码问题
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # 全局进程列表，用于信号处理
 _processes = []
 
