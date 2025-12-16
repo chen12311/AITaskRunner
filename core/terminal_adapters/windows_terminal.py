@@ -106,13 +106,21 @@ class WindowsTerminalAdapter(TerminalAdapter):
 
             # 组合完整命令：设置环境变量 + 执行 CLI 命令 + 保持窗口打开
             env_setup = "; ".join(env_commands) if env_commands else ""
-            full_command = f"{env_setup}; {command_escaped}; Read-Host 'Press Enter to exit'"
+            if env_setup:
+                full_command = f"{env_setup}; {command_escaped}; Read-Host 'Press Enter to exit'"
+            else:
+                full_command = f"{command_escaped}; Read-Host 'Press Enter to exit'"
+
+            # 使用 Base64 编码命令，避免 wt.exe 把分号当作命令分隔符
+            import base64
+            command_bytes = full_command.encode('utf-16-le')
+            encoded_command = base64.b64encode(command_bytes).decode('ascii')
 
             # 使用 wt.exe 创建新窗口
             # -w -1: 创建新窗口（而不是新标签页）
             # --title: 设置窗口标题
             # -d: 设置工作目录
-            # powershell.exe -NoExit -Command: 执行命令并保持窗口打开
+            # powershell.exe -EncodedCommand: 使用 Base64 编码的命令，避免解析问题
             wt_args = [
                 "wt.exe",
                 "-w", "-1",  # 新窗口
@@ -120,8 +128,8 @@ class WindowsTerminalAdapter(TerminalAdapter):
                 "-d", project_dir,
                 "powershell.exe",
                 "-NoExit",
-                "-Command",
-                full_command
+                "-EncodedCommand",
+                encoded_command
             ]
 
             print(f"🚀 启动 Windows Terminal 窗口")
