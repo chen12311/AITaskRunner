@@ -115,6 +115,8 @@ def main():
             )
             if install_process.returncode != 0:
                 print("   ❌ 安装前端依赖失败")
+                if install_process.stderr:
+                    print(f"   错误: {install_process.stderr.decode('utf-8', errors='replace')}")
                 return
 
         frontend_process = subprocess.Popen(
