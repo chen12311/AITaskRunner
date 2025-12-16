@@ -103,12 +103,15 @@ def main():
         frontend_dir = base_dir / "frontend"
 
         # 检查是否已安装依赖
+        # Windows 上需要 shell=True 才能找到 npm.cmd
+        use_shell = sys.platform == 'win32'
         if not (frontend_dir / "node_modules").exists():
             print("   ⚠️  未检测到 node_modules，正在安装依赖...")
             install_process = subprocess.run(
                 ["npm", "install"],
                 cwd=str(frontend_dir),
-                capture_output=True
+                capture_output=True,
+                shell=use_shell
             )
             if install_process.returncode != 0:
                 print("   ❌ 安装前端依赖失败")
@@ -117,6 +120,7 @@ def main():
         frontend_process = subprocess.Popen(
             ["npm", "run", "dev"],
             cwd=str(frontend_dir),
+            shell=use_shell
         )
         _processes.append(("Frontend", frontend_process))
         print(f"   ✅ 前端服务已启动 (PID: {frontend_process.pid})")
