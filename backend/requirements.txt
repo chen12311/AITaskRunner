@@ -18,8 +18,8 @@ aiofiles==23.2.1
 aiosqlite==0.19.0
 
 # Pydantic for data validation
-pydantic==2.5.3
-pydantic-settings==2.1.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
 
 # Environment variables
 python-dotenv==1.0.0
