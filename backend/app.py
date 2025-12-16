@@ -1,9 +1,15 @@
 """
 FastAPI主应用 - 简化版本
 """
+import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+
+# 修复 Windows 控制台编码问题
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # 加载项目根目录的 .env 文件
 _root_dir = Path(__file__).parent.parent
