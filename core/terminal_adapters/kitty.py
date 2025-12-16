@@ -238,6 +238,57 @@ class KittyAdapter(TerminalAdapter):
                 pass
             return False
 
+    async def is_cli_active(self) -> bool:
+        """
+        检测 CLI 是否在活跃执行（Kitty 专属）
+
+        通过 kitten @ ls 获取窗口信息，检查 at_prompt 状态：
+        - at_prompt=False → CLI 正在执行命令
+        - at_prompt=True → 回到 shell 提示符（CLI 可能完成或卡住）
+
+        Returns:
+            True = CLI 在活跃执行, False = CLI 不活跃或无法检测
+        """
+        if not self.current_session or not self.current_session.socket_path:
+            return False
+
+        try:
+            import json
+            socket_path = self.current_session.socket_path
+            kitten_path = self._get_kitten_path()
+
+            process = await asyncio.create_subprocess_exec(
+                kitten_path, "@",
+                "--to", f"unix:{socket_path}",
+                "ls",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+                if process.returncode != 0:
+                    return False
+
+                data = json.loads(stdout.decode('utf-8'))
+                # 获取第一个窗口的 at_prompt 状态
+                if data and data[0].get('tabs'):
+                    window = data[0]['tabs'][0]['windows'][0]
+                    at_prompt = window.get('at_prompt', True)
+                    return not at_prompt  # at_prompt=False 表示正在执行
+
+                return False
+
+            except asyncio.TimeoutError:
+                process.kill()
+                return False
+            except json.JSONDecodeError:
+                return False
+
+        except Exception as e:
+            print(f"⚠️ 检测 CLI 活跃状态失败: {e}")
+            return False
+
     async def close_window(self) -> bool:
         """关闭 Kitty 窗口"""
         if not self.current_session:

@@ -2,8 +2,9 @@
 会话看门狗 - 监控会话健康状态，自动恢复意外终止的会话
 """
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Dict, Optional, Callable, TYPE_CHECKING
+from typing import Dict, Set, Optional, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.session.manager import SessionManager
@@ -12,11 +13,13 @@ if TYPE_CHECKING:
 
 class SessionWatchdog:
     """
-    会话看门狗 - 双重检测机制（心跳超时 + 终端存活）
+    会话看门狗 - 监控会话健康状态
 
     检测逻辑：
-    1. 终端窗口不存在 → terminated（立即重启）
-    2. 心跳超时但窗口存活 → idle（可能在执行长任务，暂不处理）
+    1. 终端窗口不存在 → terminated（自动重启会话）
+    2. Kitty: at_prompt=true → idle（发送恢复消息唤醒 CLI）
+
+    注意：仅 Kitty 终端支持 idle 检测，其他终端只检测 terminated
     """
 
     def __init__(
@@ -42,6 +45,7 @@ class SessionWatchdog:
         self._on_timeout = on_timeout
 
         self._last_activity: Dict[str, datetime] = {}
+        self._safe_transition_tasks: Set[str] = set()  # 正在安全转换期的任务
         self._watchdog_task: Optional[asyncio.Task] = None
         self._running = False
 
@@ -52,6 +56,30 @@ class SessionWatchdog:
     def clear_activity(self, task_id: str):
         """清除任务活动记录（任务完成/移除时调用）"""
         self._last_activity.pop(task_id, None)
+
+    def begin_safe_transition(self, task_id: str):
+        """标记任务进入安全转换期（会话正常切换时调用，避免看门狗误判）"""
+        self._safe_transition_tasks.add(task_id)
+
+    def end_safe_transition(self, task_id: str):
+        """标记任务退出安全转换期"""
+        self._safe_transition_tasks.discard(task_id)
+
+    @asynccontextmanager
+    async def safe_transition(self, task_id: str):
+        """
+        安全转换期上下文管理器
+
+        用法:
+            async with watchdog.safe_transition(task_id):
+                await remove_session(task_id)
+                await start_session(task_id, ...)
+        """
+        self.begin_safe_transition(task_id)
+        try:
+            yield
+        finally:
+            self.end_safe_transition(task_id)
 
     async def start(self):
         """启动看门狗"""
@@ -91,31 +119,42 @@ class SessionWatchdog:
 
         for session in active_sessions:
             task_id = session.task_id
-            health = self._check_session_health(task_id, session)
+
+            # 跳过正在安全转换期的任务（正常的会话切换，非意外终止）
+            if task_id in self._safe_transition_tasks:
+                continue
+
+            health = await self._check_session_health(task_id, session)
 
             if health == "terminated":
                 await self._handle_terminated(task_id, session)
+            elif health == "idle":
+                await self._handle_idle(task_id, session)
 
-    def _check_session_health(self, task_id: str, session: "ManagedSession") -> str:
+    async def _check_session_health(self, task_id: str, session: "ManagedSession") -> str:
         """
         检查会话健康状态
 
+        检测逻辑：
+        1. 终端窗口是否存活
+        2. 终端原生活跃检测（仅 Kitty 支持）
+
         Returns:
             "healthy" - 正常
-            "idle" - 心跳超时但窗口存活
-            "terminated" - 已终止
+            "idle" - CLI 不活跃（需要发送恢复消息，仅 Kitty）
+            "terminated" - 已终止（需要重启会话）
         """
         # 1. 检查终端窗口是否存活
         if not session.verify_alive():
             return "terminated"
 
-        # 2. 检查心跳超时
-        last_activity = self._last_activity.get(task_id)
-        if last_activity:
-            idle_seconds = (datetime.now() - last_activity).total_seconds()
-            if idle_seconds > self._heartbeat_timeout:
-                return "idle"
+        # 2. 使用终端原生的活跃检测（仅 Kitty 支持）
+        if session.terminal:
+            is_active = await session.terminal.is_cli_active()
+            if is_active is not None:
+                return "healthy" if is_active else "idle"
 
+        # 其他终端不支持 idle 检测，只检测 terminated
         return "healthy"
 
     async def _get_template_by_task_status(self, task_id: str) -> str:
@@ -153,6 +192,34 @@ class SessionWatchdog:
         except Exception as e:
             print(f"⚠️ 查询任务状态失败: {e}，使用默认模板 continue_task")
             return "continue_task"
+
+    async def _handle_idle(self, task_id: str, session: "ManagedSession"):
+        """处理心跳超时的会话 - 发送恢复消息唤醒 CLI"""
+        print(f"😴 检测到会话 {task_id} 心跳超时，发送恢复消息...")
+
+        try:
+            # 渲染 continue_task 模板
+            template_service = self._session_manager.template_service
+            message = await template_service.render_template(
+                template_type="continue_task",
+                task_id=task_id,
+                project_dir=session.project_dir,
+                doc_path=session.doc_path,
+                api_base_url=session.api_base_url
+            )
+
+            # 发送消息
+            success = await self._session_manager.send_message(task_id, message)
+
+            if success:
+                # 更新活动时间，避免立即重复发送
+                self.record_activity(task_id)
+                print(f"✅ 已向会话 {task_id} 发送恢复消息")
+            else:
+                print(f"❌ 向会话 {task_id} 发送恢复消息失败")
+
+        except Exception as e:
+            print(f"❌ 处理 idle 会话异常: {e}")
 
     async def _handle_terminated(self, task_id: str, session: "ManagedSession"):
         """处理已终止的会话"""

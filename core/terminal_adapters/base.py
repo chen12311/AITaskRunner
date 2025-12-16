@@ -98,3 +98,17 @@ class TerminalAdapter(ABC):
     def clear_session(self):
         """清除会话信息"""
         self.current_session = None
+
+    async def is_cli_active(self) -> bool | None:
+        """
+        检测 CLI 是否在活跃执行
+
+        子类可覆盖此方法实现终端特定的检测逻辑。
+        默认返回 None 表示不支持此功能。
+
+        Returns:
+            True = CLI 在活跃执行
+            False = CLI 不活跃
+            None = 不支持此功能（回退到心跳检测）
+        """
+        return None

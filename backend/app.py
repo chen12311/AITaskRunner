@@ -920,10 +920,21 @@ async def _complete_task_with_cleanup(task_id: str, log_message: str):
     current_project_dir = current_task.project_directory if current_task else None
 
     await task_service.complete_task(task_id)
-    await codex_service.stop_session(task_id)
-    # 清除看门狗心跳记录
+
+    # 标记进入安全转换期，避免看门狗在停止会话时误判
     if codex_service.watchdog:
-        codex_service.watchdog.clear_activity(task_id)
+        codex_service.watchdog.begin_safe_transition(task_id)
+
+    try:
+        await codex_service.stop_session(task_id)
+        # 清除看门狗心跳记录
+        if codex_service.watchdog:
+            codex_service.watchdog.clear_activity(task_id)
+    finally:
+        # 退出安全转换期
+        if codex_service.watchdog:
+            codex_service.watchdog.end_safe_transition(task_id)
+
     await task_service.add_task_log(task_id, "INFO", log_message)
     await manager.broadcast({
         "type": "task_completed",
@@ -963,26 +974,35 @@ async def _trigger_review_task(task_id: str, task):
     # 获取 API 基础地址
     api_base_url = await settings_service.get_setting('api_base_url') or 'http://localhost:8000'
 
-    # 彻底移除旧会话（避免看门狗误判 STARTING 状态）
-    await codex_service.remove_session(task_id)
+    # 标记进入安全转换期，避免看门狗在会话切换过程中误判
+    if codex_service.watchdog:
+        codex_service.watchdog.begin_safe_transition(task_id)
 
-    # 使用 review CLI 启动全新会话（直接使用 review 模板）
-    success = await codex_service.start_session(
-        task_id=task_id,
-        project_dir=task.project_directory,
-        doc_path=task.markdown_document_path,
-        api_base_url=api_base_url,
-        cli_type=review_cli_type,
-        template_name="review"  # 使用 review 模板而不是 initial_task
-    )
+    try:
+        # 彻底移除旧会话
+        await codex_service.remove_session(task_id)
 
-    if not success:
-        await task_service.add_task_log(task_id, "ERROR", f"❌ 启动 Review CLI ({review_cli_type}) 失败")
-        # 回滚状态为 in_progress
-        await task_service.update_task_fields(task_id, {'status': 'in_progress'})
-        return
+        # 使用 review CLI 启动全新会话（直接使用 review 模板）
+        success = await codex_service.start_session(
+            task_id=task_id,
+            project_dir=task.project_directory,
+            doc_path=task.markdown_document_path,
+            api_base_url=api_base_url,
+            cli_type=review_cli_type,
+            template_name="review"  # 使用 review 模板而不是 initial_task
+        )
 
-    await task_service.add_task_log(task_id, "INFO", f"已使用 {review_cli_type} 启动 Review 会话")
+        if not success:
+            await task_service.add_task_log(task_id, "ERROR", f"❌ 启动 Review CLI ({review_cli_type}) 失败")
+            # 回滚状态为 in_progress
+            await task_service.update_task_fields(task_id, {'status': 'in_progress'})
+            return
+
+        await task_service.add_task_log(task_id, "INFO", f"已使用 {review_cli_type} 启动 Review 会话")
+    finally:
+        # 退出安全转换期
+        if codex_service.watchdog:
+            codex_service.watchdog.end_safe_transition(task_id)
 
     # 广播状态更新
     await manager.broadcast({
